@@ -1,0 +1,1 @@
+This folder contains scripts for processing and loading data.
