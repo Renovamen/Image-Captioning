@@ -28,7 +28,8 @@ def setup(vocab_size):
             embed_dim = config.emb_dim,
             decoder_dim = config.decoder_dim,
             vocab_size = vocab_size,
-            dropout = config.dropout
+            dropout = config.dropout,
+            caption_model = model_name
         )
     else:
         raise Exception("Model not supported: ", model_name)

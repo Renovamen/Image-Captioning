@@ -112,11 +112,19 @@ class AttentionEncoderResNet(nn.Module):
     input param:
         images: input image (batch_size, 3, image_size = 256, image_size = 256)
     return: 
-        feature_map: feature map of the image
+        feature_map: feature map of the image (batch_size, num_pixels = 49, encoder_dim = 2048)
     '''
     def forward(self, images):
         feature_map = self.resnet101(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
         feature_map = feature_map.permute(0, 2, 3, 1)  # (batch_size, encoded_image_size = 7, encoded_image_size = 7, 2048)
+        
+        batch_size = feature_map.size(0)
+        encoder_dim = feature_map.size(-1)
+        num_pixels = feature_map.size(1) * feature_map.size(2) # encoded_image_size * encoded_image_size = 49
+        
+        # flatten image
+        feature_map = feature_map.view(batch_size, num_pixels, encoder_dim) # (batch_size, num_pixels = 49, encoder_dim = 2048)
+        
         return feature_map
 
     def fine_tune(self, fine_tune = True):

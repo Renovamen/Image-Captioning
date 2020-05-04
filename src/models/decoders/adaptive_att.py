@@ -138,7 +138,8 @@ class AdaptiveAttention(nn.Module):
         c_t: context vector in spatial attention (batch_size, decoder_dim)
         c_hat_t: context vector in adaptive attention (batch_size, decoder_dim)
         alpha_t: attention weight in spation attention (batch_size, num_pixels)
-        beta_t: entinel gate in adaptive attention (batch_size, 1)
+        alpha_hat_t: attention weight in adaptive attention (batch_size, num_pixels + 1)
+        beta_t: sentinel gate in adaptive attention (batch_size, 1)
     '''
     def forward(self, spatial_feature, h_t, s_t):
         # W_v * V
@@ -167,11 +168,11 @@ class AdaptiveAttention(nn.Module):
         # eq.11: \hat{c}_t = β_t * s_t + (1 - β_t) * c_t
         c_hat_t = beta_t * s_t + (1 - beta_t) * c_t # (batch_size, decoder_dim)
 
-        return c_t, c_hat_t, alpha_t, beta_t
+        return c_t, c_hat_t, alpha_t, alpha_hat_t, beta_t
 
         
 class Decoder(BasicDecoder):
-    def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, dropout = 0.5):
+    def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, dropout = 0.5, caption_model = 'adaptive_att'):
         super(Decoder, self).__init__(
             embed_dim = embed_dim, 
             decoder_dim = decoder_dim, 
@@ -183,6 +184,7 @@ class Decoder(BasicDecoder):
         # self.decode_step = nn.LSTMCell(embed_dim * 2, decoder_dim, bias = True)  # LSTM
         self.decode_step = AdaptiveLSTMCell(embed_dim * 2, decoder_dim) # LSTM with visual sentinel
         self.adaptive_attention = AdaptiveAttention(decoder_dim, attention_dim)
+        self.caption_model = caption_model
 
     '''
     initialize cell state and hidden state for LSTM (a vector filled with 0)
@@ -212,7 +214,7 @@ class Decoder(BasicDecoder):
         decode lengths: actual caption length - 1
         sort indices
     '''
-    def forward(self, encoder_out, encoded_captions, caption_lengths, caption_model = 'adaptive_att'):
+    def forward(self, encoder_out, encoded_captions, caption_lengths):
         
         spatial_feature, global_image = encoder_out
 
@@ -262,14 +264,168 @@ class Decoder(BasicDecoder):
             h, c, s = self.decode_step(x_t, (h[:batch_size_t], c[:batch_size_t])) # (batch_size_t, decoder_dim)
             
             # adaptive attention network
-            spatial_c, adaptive_c, _, _ = self.adaptive_attention(spatial_feature[:batch_size_t], h, s) # (batch_size_t, decoder_dim)
+            spatial_c, adaptive_c, _, _, _ = self.adaptive_attention(spatial_feature[:batch_size_t], h, s) # (batch_size_t, decoder_dim)
             
             # calc word probability over vocabulary
-            if caption_model == 'adaptive_att':
+            if self.caption_model == 'adaptive_att':
                 # eq.13: p_t = softmax(W_p(\hat{c}_t + h_t))
-                preds = self.fc(self.dropout(adaptive_c + h)) # (batch_size, vocab_size)
-            elif caption_model == 'spatial_att':
-                preds = self.fc(self.dropout(spatial_c + h)) # (batch_size, vocab_size)
+                preds = self.fc(self.dropout(adaptive_c + h)) # (batch_size_t, vocab_size)
+            elif self.caption_model == 'spatial_att':
+                preds = self.fc(self.dropout(spatial_c + h)) # (batch_size_t, vocab_size)
             predictions[:batch_size_t, t, :] = preds
         
         return predictions, encoded_captions, decode_lengths, sort_ind
+
+    
+    '''
+    beam search (used in evaluation without Teacher Forcing and test)
+    
+    TODO: batched beam search
+    therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
+
+    input param:
+        encoder_out(tuple): a tuple contains:
+            0. spatial_feature: spatial image feature (1, num_pixels, decoder_dim)
+            1. global_image: global image feature (1, embed_dim)
+        beam_size(int): beam size
+        word_map(dict): word2id map
+    
+    return: 
+        seq(list[word_id1, ..., word_idn]): the predicted sentence after beam search
+        alphas(list): attention weights at each time step
+        betas(list): sentinel gate at each time step
+    '''
+    def beam_search(self, encoder_out, beam_size, word_map):
+        
+        import math
+
+        k = beam_size
+
+        spatial_feature, global_image = encoder_out # (1, num_pixels, decoder_dim), (1, embed_dim)
+        
+        num_pixels = spatial_feature.size(1)
+        enc_image_size = int(math.sqrt(num_pixels)) # enc_image_size * enc_image_size = num_pixels
+        
+        # dimention of spatial image feature should be the same as dimention of decoder's hidden layer
+        decoder_dim = spatial_feature.size(-1)
+        assert decoder_dim == self.decoder_dim
+        
+        # check the size of vocabulary
+        assert len(word_map) == self.vocab_size
+        vocab_size = len(word_map)
+
+        # we'll treat the problem as having a batch size of k
+        spatial_feature = spatial_feature.expand(k, num_pixels, decoder_dim)  # (k, num_pixels, decoder_dim)
+        
+        # tensor to store top k previous words at each step; now they're just <start>
+        k_prev_words = torch.LongTensor([[word_map['<start>']]] * k).to(device)  # (k, 1)
+        # tensor to store top k sequences; now they're just <start>
+        seqs = k_prev_words  # (k, 1)
+        # tensor to store top k sequences' scores; now they're just 0
+        top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
+        # tensor to store top k sequences' alphas; now they're just 1
+        seqs_alpha = torch.ones(k, 1, enc_image_size, enc_image_size).to(device)  # (k, 1, enc_image_size, enc_image_size)
+        # tensor to store the top k sequences' betas; now they're just 1
+        seqs_beta = torch.ones(k, 1, 1).to(device) 
+
+        # lists to store completed sequences, their alphas, betas and scores
+        complete_seqs = list()
+        complete_seqs_scores = list()
+        complete_seqs_alpha = list()
+        complete_seqs_beta = list()
+
+        # start decoding
+        step = 1
+        h, c = self.init_hidden_state(spatial_feature) # (k, decoder_dim)
+
+        # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
+        while True:
+
+            embeddings = self.embedding(k_prev_words).squeeze(1)  # (s, embed_dim)
+            
+            # concatenate word embeddings and global image features for input to LSTM
+            # x_t = [w_t; v^g]
+            x = torch.cat((embeddings, global_image.expand_as(embeddings)), dim = 1) # (s, embed_dim * 2)
+
+            # LSTM
+            h, c, s = self.decode_step(x, (h, c)) # (s, decoder_dim)
+            
+            # adaptive attention network
+            spatial_c, adaptive_c, alpha, alpha_hat, beta = self.adaptive_attention(spatial_feature, h, s) # (s, decoder_dim), (s, decoder_dim), (s, num_pixels), (s, num_pixels + 1), (s, 1)
+            
+            alpha = alpha.view(-1, enc_image_size, enc_image_size)  # (s, enc_image_size, enc_image_size)
+
+            # remember, \hat{alpha} has been extended to num_pixels + 1 in adaptive attention, and we don't need the last element (used to compute beta) here
+            alpha_hat = alpha_hat[:, :-1] # (s, num_pixels)
+            alpha_hat = alpha_hat.view(-1, enc_image_size, enc_image_size)  # (s, enc_image_size, enc_image_size)
+
+            # calc word probability over vocabulary
+            if self.caption_model == 'adaptive_att':
+                # eq.13: p_t = softmax(W_p(\hat{c}_t + h_t))
+                scores = self.fc(adaptive_c + h) # (batch_size, vocab_size)
+            elif self.caption_model == 'spatial_att':
+                scores = self.fc(spatial_c + h) # (batch_size, vocab_size)
+            scores = F.log_softmax(scores, dim = 1) # (s, vocab_size)
+            
+            # record score
+            # (k, 1) will be expanded to (k, vocab_size), then (k, vocab_size) + (s, vocab_size) --> (s, vocab_size)
+            scores = top_k_scores.expand_as(scores) + scores  # (s, vocab_size)
+
+            # for the first step, all k points will have the same scores (since same k previous words, h, c)
+            if step == 1:
+                top_k_scores, top_k_words = scores[0].topk(k, 0, True, True)  # (s)
+            else:
+                # unroll and find top scores, and their unrolled indices
+                top_k_scores, top_k_words = scores.view(-1).topk(k, 0, True, True)  # (s)
+
+            # convert unrolled indices to actual indices of scores
+            prev_word_inds = top_k_words / vocab_size  # (s)
+            next_word_inds = top_k_words % vocab_size  # (s)
+            
+            # add new words, alphas and betas to sequences
+            seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim = 1) # (s, step+1)
+            if self.caption_model == 'adaptive_att':
+                seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha_hat[prev_word_inds].unsqueeze(1)], dim = 1) # (s, step+1, enc_image_size, enc_image_size)
+            elif self.caption_model == 'spatial_att':
+                seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, enc_image_size, enc_image_size)
+            seqs_beta = torch.cat([seqs_beta[prev_word_inds], beta[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, 1)
+
+            # which sequences are incomplete (didn't reach <end>)?
+            incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if next_word != word_map['<end>']]
+            complete_inds = list(set(range(len(next_word_inds))) - set(incomplete_inds))
+            
+            # set aside complete sequences
+            if len(complete_inds) > 0:
+                complete_seqs.extend(seqs[complete_inds].tolist())
+                complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
+                complete_seqs_beta.extend(seqs_beta[complete_inds])   
+                complete_seqs_scores.extend(top_k_scores[complete_inds])
+
+            k -= len(complete_inds)  # reduce beam length accordingly
+            if k == 0:
+                break
+            
+            # proceed with incomplete sequences
+            seqs = seqs[incomplete_inds]
+            seqs_alpha = seqs_alpha[incomplete_inds]
+            seqs_beta = seqs_beta[incomplete_inds]
+            h = h[prev_word_inds[incomplete_inds]]
+            c = c[prev_word_inds[incomplete_inds]]
+            spatial_feature = spatial_feature[prev_word_inds[incomplete_inds]]
+            top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
+            k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
+
+            # break if things have been going on too long
+            if step > 50:
+                break
+            step += 1
+            
+        i = complete_seqs_scores.index(max(complete_seqs_scores))
+        seq = complete_seqs[i]
+        alphas = complete_seqs_alpha[i]
+        betas = complete_seqs_beta[i] 
+
+        # predict sentence
+        # predict = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
+        
+        return seq, alphas, betas

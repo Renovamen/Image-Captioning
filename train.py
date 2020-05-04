@@ -85,13 +85,11 @@ def train(train_loader, encoder, decoder, loss_function, encoder_optimizer, deco
         imgs = encoder(imgs)
 
         # forward decoder
-        if caption_model == 'show_tell':
-            scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens)
-        elif caption_model == 'adaptive_att' or caption_model == 'spatial_att':
-            scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens, caption_model)
-        elif caption_model == 'att2all':
+        if caption_model == 'att2all':
             scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(imgs, caps, caplens)
-
+        else:
+            scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens)
+  
         # since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
 
@@ -141,12 +139,13 @@ def train(train_loader, encoder, decoder, loss_function, encoder_optimizer, deco
                 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                 'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(epoch, i, len(train_loader),
                                                                         batch_time = batch_time,
-                                                                        data_time = data_time, loss = losses,
+                                                                        data_time = data_time, 
+                                                                        loss = losses,
                                                                         top5 = top5accs)
             )
 
 '''
-validate an epoch
+validate an epoch (with Tearcher Forcing)
 
 input param:
     val_loader: DataLoader for validation data
@@ -188,13 +187,11 @@ def validate(val_loader, encoder, decoder, loss_function):
                 imgs = encoder(imgs)
             
             # forward decoder 
-            if caption_model == 'show_tell':
-                scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens)
-            elif caption_model == 'adaptive_att' or caption_model == 'spatial_att':
-                scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens, caption_model)
-            elif caption_model == 'att2all':
+            if caption_model == 'att2all':
                 scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(imgs, caps, caplens)
-
+            else:
+                scores, caps_sorted, decode_lengths, sort_ind = decoder(imgs, caps, caplens)
+                
             # since we decoded starting with <start>, the targets are all words after <start>, up to <end>
             targets = caps_sorted[:, 1:]
 
@@ -223,8 +220,11 @@ def validate(val_loader, encoder, decoder, loss_function):
                 print('Validation: [{0}/{1}]\t'
                       'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t'.format(i, len(val_loader), batch_time=batch_time,
-                                                                                loss=losses, top5=top5accs))
+                      'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t'.format(i, len(val_loader), 
+                                                                                batch_time = batch_time,
+                                                                                loss = losses, 
+                                                                                top5 = top5accs)
+                )
 
             # store ground truth captions and predicted captions of each image
             # for n images, each of them has one prediction and multiple ground truths (a, b, c...):
@@ -387,9 +387,16 @@ def main():
 
         # save checkpoint
         save_checkpoint(
-            data_name, epoch, epochs_since_improvement, 
-            encoder, decoder, encoder_optimizer,
-            decoder_optimizer, recent_bleu4, is_best
+            data_name = data_name, 
+            epoch = epoch, 
+            epochs_since_improvement = epochs_since_improvement, 
+            encoder = encoder, 
+            decoder = decoder, 
+            encoder_optimizer = encoder_optimizer,
+            decoder_optimizer = decoder_optimizer,
+            config = config,
+            bleu4 = recent_bleu4, 
+            is_best = is_best
         )
 
 

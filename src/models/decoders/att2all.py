@@ -4,6 +4,7 @@
 import torch
 from torch import nn
 import torchvision
+import torch.nn.functional as F
 from .decoder import Decoder as BasicDecoder
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -112,12 +113,9 @@ class Decoder(BasicDecoder):
     '''
     def forward(self, encoder_out, encoded_captions, caption_lengths):
         batch_size = encoder_out.size(0)
+        num_pixels = encoder_out.size(1)
         encoder_dim = encoder_out.size(-1)
         vocab_size = self.vocab_size
-
-        # flatten image
-        encoder_out = encoder_out.view(batch_size, -1, encoder_dim)  # (batch_size, num_pixels, encoder_dim)
-        num_pixels = encoder_out.size(1)
 
         # sort input captions by decreasing lengths
         # because in 'train.py', 'pack_padded_sequence' will be used to deal with the pads in captions 
@@ -152,13 +150,13 @@ class Decoder(BasicDecoder):
             batch_size_t = sum([l > t for l in decode_lengths])
             
             # attention
-            attention_weighted_encoding, alpha = self.attention(encoder_out[:batch_size_t], h[:batch_size_t])
+            attention_weighted_encoding, alpha = self.attention(encoder_out[:batch_size_t], h[:batch_size_t]) # (batch_size_t, encoder_dim), (batch_size_t, num_pixels)
             
             # a gating variable which decide how much context info will be used at each time step
             # β = sigmod(f_beta(h_{t-1}))
             beta = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar (batch_size_t, encoder_dim)
             # z_t = β * \sum_i^L(α_{t,i} * a_i)
-            attention_weighted_encoding = beta * attention_weighted_encoding
+            attention_weighted_encoding = beta * attention_weighted_encoding # (batch_size_t, encoder_dim)
             
             # LSTM
             h, c = self.decode_step(
@@ -172,3 +170,133 @@ class Decoder(BasicDecoder):
             alphas[:batch_size_t, t, :] = alpha
 
         return predictions, encoded_captions, decode_lengths, alphas, sort_ind
+    
+
+    '''
+    beam search (used in evaluation without Teacher Forcing and test)
+    
+    TODO: batched beam search
+    therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
+
+    input param:
+        encoder_out: feature map extracted by encoder (1, num_pixels, encoder_dim)
+        beam_size(int): beam size
+        word_map(dict): word2id map
+    
+    return: 
+        seq(list[word_id1, ..., word_idn]): the predicted sentence after beam search
+        alphas(list): attention weights at each time step
+    '''
+    def beam_search(self, encoder_out, beam_size, word_map):
+
+        import math
+
+        k = beam_size
+
+        encoder_dim = encoder_out.size(-1)
+        num_pixels = encoder_out.size(1)
+        enc_image_size = int(math.sqrt(num_pixels)) # enc_image_size * enc_image_size = num_pixels
+
+        # check the size of vocabulary
+        assert len(word_map) == self.vocab_size
+        vocab_size = len(word_map)
+
+        # we'll treat the problem as having a batch size of k
+        encoder_out = encoder_out.expand(k, num_pixels, encoder_dim)  # (k, num_pixels, encoder_dim)
+
+        # tensor to store top k previous words at each step; now they're just <start>
+        k_prev_words = torch.LongTensor([[word_map['<start>']]] * k).to(device)  # (k, 1)
+        # tensor to store top k sequences; now they're just <start>
+        seqs = k_prev_words  # (k, 1)
+        # tensor to store top k sequences' scores; now they're just 0
+        top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
+        # tensor to store top k sequences' alphas; now they're just 1
+        seqs_alpha = torch.ones(k, 1, enc_image_size, enc_image_size).to(device)  # (k, 1, enc_image_size, enc_image_size)
+
+        # lists to store completed sequences, their alphas and scores
+        complete_seqs = list()
+        complete_seqs_scores = list()
+        complete_seqs_alpha = list()
+
+        # start decoding
+        step = 1
+        h, c = self.init_hidden_state(encoder_out) # (k, decoder_dim)
+
+        # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
+        while True:
+
+            embeddings = self.embedding(k_prev_words).squeeze(1)  # (s, embed_dim)
+
+            # attention
+            attention_weighted_encoding, alpha = self.attention(encoder_out, h)  # (s, encoder_dim), (s, num_pixels)
+
+            alpha = alpha.view(-1, enc_image_size, enc_image_size)  # (s, enc_image_size, enc_image_size)
+
+            # a gating variable which decide how much context info will be used at each time step
+            # β = sigmod(f_beta(h_{t-1}))
+            beta = self.sigmoid(self.f_beta(h))  # gating scalar, (s, encoder_dim)
+            # z_t = β * \sum_i^L(α_{t,i} * a_i)
+            attention_weighted_encoding = beta * attention_weighted_encoding
+
+            # LSTM
+            h, c = self.decode_step(torch.cat([embeddings, attention_weighted_encoding], dim = 1), (h, c))  # (s, decoder_dim)
+
+            # calc word probability over the vocabulary
+            scores = self.fc(h)  # (s, vocab_size)
+            scores = F.log_softmax(scores, dim = 1) # (s, vocab_size)
+
+            # record score
+            # (k, 1) will be expanded to (k, vocab_size), then (k, vocab_size) + (s, vocab_size) --> (s, vocab_size)
+            scores = top_k_scores.expand_as(scores) + scores  # (s, vocab_size)
+
+            # for the first step, all k points will have the same scores (since same k previous words, h, c)
+            if step == 1:
+                top_k_scores, top_k_words = scores[0].topk(k, 0, True, True)  # (s)
+            else:
+                # unroll and find top scores, and their unrolled indices
+                top_k_scores, top_k_words = scores.view(-1).topk(k, 0, True, True)  # (s)
+
+            # convert unrolled indices to actual indices of scores
+            prev_word_inds = top_k_words / vocab_size  # (s)
+            next_word_inds = top_k_words % vocab_size  # (s)
+
+            # add new words and alphas to sequences
+            seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim = 1)  # (s, step+1)
+            seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, enc_image_size, enc_image_size)
+
+            # which sequences are incomplete (didn't reach <end>)?
+            incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if next_word != word_map['<end>']]
+            complete_inds = list(set(range(len(next_word_inds))) - set(incomplete_inds))
+
+            # set aside complete sequences
+            if len(complete_inds) > 0:
+                complete_seqs.extend(seqs[complete_inds].tolist())
+                complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
+                complete_seqs_scores.extend(top_k_scores[complete_inds])
+
+            k -= len(complete_inds)  # reduce beam length accordingly 
+            if k == 0:
+                break
+            
+            # proceed with incomplete sequences
+            seqs = seqs[incomplete_inds]
+            seqs_alpha = seqs_alpha[incomplete_inds]
+            h = h[prev_word_inds[incomplete_inds]]
+            c = c[prev_word_inds[incomplete_inds]]
+            encoder_out = encoder_out[prev_word_inds[incomplete_inds]]
+            top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
+            k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
+
+            # break if things have been going on too long
+            if step > 50:
+                break
+            step += 1
+        
+        i = complete_seqs_scores.index(max(complete_seqs_scores))
+        seq = complete_seqs[i]
+        alphas = complete_seqs_alpha[i]
+
+        # predict sentence
+        # predict = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
+
+        return seq, alphas

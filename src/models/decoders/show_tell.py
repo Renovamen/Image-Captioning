@@ -4,6 +4,7 @@
 import torch
 from torch import nn
 import torchvision
+import torch.nn.functional as F
 from .decoder import Decoder as BasicDecoder
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,7 +96,7 @@ class Decoder(BasicDecoder):
                 x_t = encoder_out[:batch_size_t] # (batch_size_t, embed_dim)
             else:
                 # input embeded captions
-                x_t = embeddings[:batch_size_t, t, :] # (batch_size_t, embed_dim)
+                x_t = embeddings[:batch_size_t, t - 1, :] # (batch_size_t, embed_dim)
             
             # LSTM
             h, c = self.decode_step(x_t, (h[:batch_size_t], c[:batch_size_t])) # (batch_size_t, decoder_dim) 
@@ -105,3 +106,120 @@ class Decoder(BasicDecoder):
             predictions[:batch_size_t, t, :] = preds
 
         return predictions, encoded_captions, decode_lengths, sort_ind
+
+    
+    '''
+    beam search (used in evaluation without Teacher Forcing and test)
+    
+    TODO: batched beam search
+    therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
+
+    input param:
+        encoder_out: image feature extracted by encoder (1, embed_dim)
+        beam_size(int): beam size
+        word_map(dict): word2id map
+    
+    return: 
+        predict(list[word_id1, ..., word_idn]): the predicted sentence after beam search
+    '''
+    def beam_search(self, encoder_out, beam_size, word_map):
+
+        k = beam_size
+
+        # dimention of image feature should be the same as dimention of word embedding
+        embed_dim = encoder_out.size(-1)
+        assert embed_dim == self.embed_dim
+        
+        # check the size of vocabulary
+        assert len(word_map) == self.vocab_size
+        vocab_size = len(word_map)
+
+        # we'll treat the problem as having a batch size of k
+        encoder_out = encoder_out.expand(k, embed_dim)  # (k, embed_dim)
+
+        # tensor to store top k previous words at each step; now they're just <start>
+        k_prev_words = torch.LongTensor([[word_map['<start>']]] * k).to(device)  # (k, 1)
+
+        # tensor to store top k sequences; now they're just <start>
+        seqs = k_prev_words  # (k, 1)
+
+        # tensor to store top k sequences' scores; now they're just 0
+        top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
+
+        # lists to store completed sequences and scores
+        complete_seqs = list()
+        complete_seqs_scores = list()
+
+        # start decoding
+        step = 1
+        h, c = self.init_hidden_state(encoder_out) # (k, decoder_dim)
+
+        # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
+        while True:
+
+            if step == 1:
+                # at the first time step, input is image feature
+                x = encoder_out # (s, embed_dim)
+            else:
+                # input embeded captions
+                embeddings = self.embedding(k_prev_words).squeeze(1)  # (s, embed_dim)
+                x = embeddings # (s, embed_dim)
+
+            # LSTM
+            h, c = self.decode_step(x, (h, c)) # (s, decoder_dim) 
+
+            # calc word probability over the vocabulary
+            scores = self.fc(h)  # (s, vocab_size)
+            scores = F.log_softmax(scores, dim = 1) # (s, vocab_size)
+
+            # record score
+            # (k, 1) will be expanded to (k, vocab_size), then (k, vocab_size) + (s, vocab_size) --> (s, vocab_size)
+            scores = top_k_scores.expand_as(scores) + scores  # (s, vocab_size)
+
+            # for the first step, all k points will have the same scores (since same k previous words, h, c)
+            if step == 1:
+                top_k_scores, top_k_words = scores[0].topk(k, 0, True, True)  # (s)
+            else:
+                # unroll and find top scores, and their unrolled indices
+                top_k_scores, top_k_words = scores.view(-1).topk(k, 0, True, True)  # (s)
+
+            # convert unrolled indices to actual indices of scores
+            prev_word_inds = top_k_words / vocab_size  # (s)
+            next_word_inds = top_k_words % vocab_size  # (s)
+
+            # add new words to sequences
+            seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim = 1)  # (s, step+1)
+
+            # which sequences are incomplete (didn't reach <end>)?
+            incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if next_word != word_map['<end>']]
+            complete_inds = list(set(range(len(next_word_inds))) - set(incomplete_inds))
+
+            # set aside complete sequences
+            if len(complete_inds) > 0:
+                complete_seqs.extend(seqs[complete_inds].tolist())
+                complete_seqs_scores.extend(top_k_scores[complete_inds])
+
+            k -= len(complete_inds)  # reduce beam length accordingly
+            
+            # proceed with incomplete sequences
+            if k == 0:
+                break
+            seqs = seqs[incomplete_inds]
+            h = h[prev_word_inds[incomplete_inds]]
+            c = c[prev_word_inds[incomplete_inds]]
+            encoder_out = encoder_out[prev_word_inds[incomplete_inds]]
+            top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
+            k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
+
+            # break if things have been going on too long
+            if step > 50:
+                break
+            step += 1
+        
+        i = complete_seqs_scores.index(max(complete_seqs_scores))
+        seq = complete_seqs[i]
+
+        # predict sentence
+        # predict = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
+
+        return seq

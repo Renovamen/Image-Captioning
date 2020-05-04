@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import yaml
-from config import config
 
 '''
 fills embedding tensor with values from the uniform distribution
@@ -82,8 +81,7 @@ input param:
     bleu4: validation BLEU-4 score for this epoch
     is_best: is this checkpoint the best so far?
 '''
-def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer, decoder_optimizer,
-                    bleu4, is_best):
+def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer, decoder_optimizer, config, bleu4, is_best):
     state = {
         'epoch': epoch,
         'epochs_since_improvement': epochs_since_improvement,
@@ -91,7 +89,8 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
         'encoder': encoder,
         'decoder': decoder,
         'encoder_optimizer': encoder_optimizer,
-        'decoder_optimizer': decoder_optimizer
+        'decoder_optimizer': decoder_optimizer,
+        'config': config
     }
     filename = 'checkpoint_' + data_name + '.pth.tar'
     torch.save(state, config.model_path + filename)

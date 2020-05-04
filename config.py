@@ -8,7 +8,7 @@ class config:
 
     # global parameters
     base_path = '/Users/zou/Desktop/Image-Caption' # path of this project
-    caption_model = 'spatial_att' # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
+    caption_model = 'att2all' # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
                                    # refer to README.md for more info about each model
     
     # dataset parameters
