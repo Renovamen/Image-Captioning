@@ -43,7 +43,7 @@ class ResNet101(nn.Module):
 
     '''
     input param:
-        fine_tune: fine-tune encoder（conv block 2-4）or not
+        fine_tune: fine-tune CNN（conv block 2-4）or not
     '''
     def fine_tune(self, fine_tune = True):
         for param in self.resnet.parameters():
@@ -66,7 +66,7 @@ input param:
 class EncoderResNet(nn.Module):
     def __init__(self, encoded_image_size = 7, embed_dim = 512):
         super(EncoderResNet, self).__init__()
-        self.resnet101 = ResNet101(encoded_image_size)
+        self.CNN = ResNet101(encoded_image_size)
         self.avg_pool = nn.AvgPool2d(
             kernel_size = encoded_image_size, 
             stride = encoded_image_size
@@ -85,14 +85,11 @@ class EncoderResNet(nn.Module):
         out: feature of this image (batch_size, embed_dim = 512)
     '''
     def forward(self, images):
-        feature_map = self.resnet101(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
+        feature_map = self.CNN(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
         batch_size = feature_map.size(0)
         out = self.avg_pool(feature_map).view(batch_size, -1) # (batch_size, 2048)
         out = self.output_layer(out) # (batch_size, embed_dim = 512)
         return out
-
-    def fine_tune(self, fine_tune = True):
-        self.resnet101.fine_tune(fine_tune)
 
 
 '''
@@ -106,7 +103,7 @@ input param:
 class AttentionEncoderResNet(nn.Module):
     def __init__(self, encoded_image_size = 7):
         super(AttentionEncoderResNet, self).__init__()
-        self.resnet101 = ResNet101(encoded_image_size)
+        self.CNN = ResNet101(encoded_image_size)
 
     '''
     input param:
@@ -115,7 +112,7 @@ class AttentionEncoderResNet(nn.Module):
         feature_map: feature map of the image (batch_size, num_pixels = 49, encoder_dim = 2048)
     '''
     def forward(self, images):
-        feature_map = self.resnet101(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
+        feature_map = self.CNN(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
         feature_map = feature_map.permute(0, 2, 3, 1)  # (batch_size, encoded_image_size = 7, encoded_image_size = 7, 2048)
         
         batch_size = feature_map.size(0)
@@ -126,9 +123,6 @@ class AttentionEncoderResNet(nn.Module):
         feature_map = feature_map.view(batch_size, num_pixels, encoder_dim) # (batch_size, num_pixels = 49, encoder_dim = 2048)
         
         return feature_map
-
-    def fine_tune(self, fine_tune = True):
-        self.resnet101.fine_tune(fine_tune)
 
 
 '''
@@ -144,7 +138,7 @@ input param:
 class AdaptiveAttentionEncoderResNet(nn.Module):
     def __init__(self, encoded_image_size = 7, decoder_dim = 512, embed_dim = 512):
         super(AdaptiveAttentionEncoderResNet, self).__init__()
-        self.resnet101 = ResNet101(encoded_image_size)
+        self.CNN = ResNet101(encoded_image_size)
         self.avg_pool = nn.AvgPool2d(
             kernel_size = encoded_image_size, 
             stride = encoded_image_size
@@ -171,7 +165,7 @@ class AdaptiveAttentionEncoderResNet(nn.Module):
         global_feature: global image feature (batch_size, embed_dim)
     '''
     def forward(self, images):
-        feature_map = self.resnet101(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
+        feature_map = self.CNN(images)  # (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
         
         batch_size = feature_map.shape[0]
         encoder_dim = feature_map.shape[1] # 2048
@@ -191,6 +185,3 @@ class AdaptiveAttentionEncoderResNet(nn.Module):
 
         # return feature_map, spatial_feature, global_feature
         return (spatial_feature, global_feature)
-
-    def fine_tune(self, fine_tune = True):
-        self.resnet101.fine_tune(fine_tune)

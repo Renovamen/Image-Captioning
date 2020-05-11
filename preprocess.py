@@ -20,10 +20,11 @@ input param:
     min_word_freq(int): word with frenquence lower than this value will be map to <unk>
     output_folder(str): path of folder to store output files
     max_len(int): captions with length higher than this value will be ignored
+    resized_size(int): size of the image after resized
 '''
 
 def data_preprocess(karpathy_json_path, image_folder, captions_per_image, 
-                    min_word_freq, output_folder, max_len = 100):
+                    min_word_freq, output_folder, max_len = 100, resized_size = 256):
 
     # load Karpathy JSON
     with open(karpathy_json_path, 'r') as j:
@@ -96,7 +97,7 @@ def data_preprocess(karpathy_json_path, image_folder, captions_per_image,
             h.attrs['captions_per_image'] = captions_per_image
 
             # create dataset inside HDF5 file to store images
-            images = h.create_dataset('images', (len(impaths), 3, 256, 256), dtype='uint8')
+            images = h.create_dataset('images', (len(impaths), 3, resized_size, resized_size), dtype = 'uint8')
 
             print("\nReading %s images and captions, storing to file...\n" % split)
 
@@ -124,10 +125,10 @@ def data_preprocess(karpathy_json_path, image_folder, captions_per_image,
                     # deal with grayscale image (2-D)
                     img = img[:, :, np.newaxis]
                     img = np.concatenate([img, img, img], axis = 2)
-                # img = imresize(img, (256, 256))
-                img = np.array(Image.fromarray(img).resize((256, 256)))
+                # img = imresize(img, (resized_size, resized_size))
+                img = np.array(Image.fromarray(img).resize((resized_size, resized_size)))
                 img = img.transpose(2, 0, 1)
-                assert img.shape == (3, 256, 256)
+                assert img.shape == (3, resized_size, resized_size)
                 assert np.max(img) <= 255
 
                 # save image to HDF5 file
@@ -167,5 +168,6 @@ if __name__ == '__main__':
         captions_per_image = config.captions_per_image,
         min_word_freq = config.min_word_freq,
         output_folder = config.dataset_output_path,
-        max_len = config.max_caption_len
+        max_len = config.max_caption_len,
+        resized_size = 256
     )

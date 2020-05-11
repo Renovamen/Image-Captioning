@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import yaml
+from config import config
 
 '''
 fills embedding tensor with values from the uniform distribution
@@ -68,20 +69,20 @@ def clip_gradient(optimizer, grad_clip):
 
 
 '''
-saves model checkpoint
+save model checkpoint
 
 input param:
-    data_name: base name of processed dataset
-    epoch: epoch number
+    epoch: epoch number the current checkpoint have been trained for
     epochs_since_improvement: number of epochs since last improvement in BLEU-4 score
     encoder: encoder model
     decoder: decoder model
     encoder_optimizer: optimizer to update encoder's weights, if fine-tuning
     decoder_optimizer: optimizer to update decoder's weights
+    caption_model
     bleu4: validation BLEU-4 score for this epoch
     is_best: is this checkpoint the best so far?
 '''
-def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer, decoder_optimizer, config, bleu4, is_best):
+def save_checkpoint(epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer, decoder_optimizer, caption_model, bleu4, is_best):
     state = {
         'epoch': epoch,
         'epochs_since_improvement': epochs_since_improvement,
@@ -90,14 +91,59 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
         'decoder': decoder,
         'encoder_optimizer': encoder_optimizer,
         'decoder_optimizer': decoder_optimizer,
-        'config': config
+        'caption_model': caption_model
     }
-    filename = 'checkpoint_' + data_name + '.pth.tar'
+    filename = 'checkpoint_' + config.dataset_basename + '.pth.tar'
     torch.save(state, config.model_path + filename)
     
     # If this checkpoint is the best so far, store a copy so it doesn't get overwritten by a worse checkpoint
     if is_best:
         torch.save(state, config.model_path + 'best_' + filename)
+
+
+'''
+load a checkpoint, so that we can continue to train on it
+
+input param:
+    checkpoint_path: path of the checkpoint
+    fine_tune_encoder: fine-tune encoder or not
+    encoder_lr: learning rate of encoder (if fine-tune)
+
+return ():
+    encoder: encoder model
+    decoder: decoder model
+    encoder_optimizer: optimizer to update encoder's weights ('none' if there is no optimizer for encoder in checkpoint)
+    decoder_optimizer: optimizer to update decoder's weights
+    start_epoch: we should start training the model from __th epoch
+    epochs_since_improvement: number of epochs since last improvement in BLEU-4 score
+    best_bleu4: BLEU-4 score of checkpoint
+    caption_model
+'''
+def load_checkpoint(checkpoint_path, fine_tune_encoder, encoder_lr):
+
+    checkpoint = torch.load(checkpoint_path)
+
+    start_epoch = checkpoint['epoch'] + 1
+    epochs_since_improvement = checkpoint['epochs_since_improvement']
+    best_bleu4 = checkpoint['bleu-4']
+
+    decoder = checkpoint['decoder']
+    decoder_optimizer = checkpoint['decoder_optimizer']
+
+    encoder = checkpoint['encoder']
+    encoder_optimizer = checkpoint['encoder_optimizer']
+    if config.fine_tune_encoder is True and encoder_optimizer is None:
+        encoder.CNN.fine_tune(fine_tune_encoder)
+        encoder_optimizer = torch.optim.Adam(
+            params = filter(lambda p: p.requires_grad, encoder.CNN.parameters()),
+            lr = encoder_lr
+        )
+    
+    caption_model = checkpoint['caption_model']
+        
+    return encoder, encoder_optimizer, decoder, decoder_optimizer, \
+            start_epoch, epochs_since_improvement, best_bleu4, caption_model
+
 
 '''
 keeps track of most recent, average, sum, and count of a metric

@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm
 
-from src.dataset.dataloader import *
+from src.dataloader import *
 from src.utils import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
@@ -29,7 +29,7 @@ word_map_file = config.dataset_output_path + 'wordmap_' + config.dataset_basenam
 
 
 # load model
-checkpoint = torch.load(checkpoint)
+checkpoint = torch.load(checkpoint, map_location = str(device))
 
 decoder = checkpoint['decoder']
 decoder = decoder.to(device)
@@ -39,7 +39,7 @@ encoder = checkpoint['encoder']
 encoder = encoder.to(device)
 encoder.eval()
 
-caption_model = checkpoint['config'].caption_model
+caption_model = checkpoint['caption_model']
 
 
 # load word map (word2ix)
@@ -129,9 +129,9 @@ def evaluate(beam_size):
         # prediction (beam search)
         if caption_model == 'show_tell':
             seq = decoder.beam_search(encoder_out, beam_size, word_map)
-        elif caption_model == 'att2all':
+        elif caption_model == 'att2all' or caption_model == 'spatial_att':
             seq, _ = decoder.beam_search(encoder_out, beam_size, word_map)
-        elif caption_model == 'adaptive_att' or caption_model == 'spatial_att':
+        elif caption_model == 'adaptive_att':
             seq, _, _ = decoder.beam_search(encoder_out, beam_size, word_map)
     
         pred = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]

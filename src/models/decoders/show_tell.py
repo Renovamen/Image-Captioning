@@ -109,7 +109,7 @@ class Decoder(BasicDecoder):
 
     
     '''
-    beam search (used in evaluation without Teacher Forcing and test)
+    beam search (used in evaluation without Teacher Forcing and inference)
     
     TODO: batched beam search
     therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
@@ -200,10 +200,10 @@ class Decoder(BasicDecoder):
                 complete_seqs_scores.extend(top_k_scores[complete_inds])
 
             k -= len(complete_inds)  # reduce beam length accordingly
-            
-            # proceed with incomplete sequences
             if k == 0:
                 break
+
+            # proceed with incomplete sequences
             seqs = seqs[incomplete_inds]
             h = h[prev_word_inds[incomplete_inds]]
             c = c[prev_word_inds[incomplete_inds]]

@@ -88,9 +88,8 @@ class AdaptiveLSTMCell(nn.Module):
         s_t = self.sentinel(x_t, h_last, m_t)
         return h_t, m_t, s_t
 
-
 '''
-class AdaptiveAttention(): calc \hat{c}_t
+class AdaptiveAttention(): adaptive attention
 
 input param:
     attention_dim: dimention of attention network
@@ -98,79 +97,88 @@ input param:
     dropout: dropout
 '''
 class AdaptiveAttention(nn.Module):
-    def __init__(self, attention_dim, decoder_dim, dropout = 0.5):
+
+    def __init__(self, attention_dim, decoder_dim, dropout = 0.5, caption_model = 'adaptive_att'):
         super(AdaptiveAttention, self).__init__()
-        self.w_v = nn.Sequential(
-            nn.Dropout(p = dropout),
-            nn.Linear(decoder_dim, attention_dim)
-        ) # W_v
-        self.w_g = nn.Sequential(
-            nn.Dropout(p = dropout),
-            nn.Linear(decoder_dim, attention_dim)
-        ) # W_g
-        self.w_s = nn.Sequential(
-            nn.Dropout(p = dropout),
-            nn.Linear(decoder_dim, attention_dim)
-        ) # W_s
-        self.w_h = nn.Sequential(
-            nn.Dropout(p = dropout),
-            nn.Linear(attention_dim, 1)
-        ) # w_h
-        self.softmax = nn.Softmax(dim = 1)  # softmax layer to calculate weights
+        self.affine_s = nn.Linear(decoder_dim, decoder_dim)
+        self.affine_h = nn.Linear(decoder_dim, decoder_dim)
+        
+        self.w_s = nn.Linear(decoder_dim, attention_dim)   
+        self.w_g = nn.Linear(decoder_dim, attention_dim)
+        self.w_v = nn.Linear(decoder_dim, attention_dim)
+        self.w_h = nn.Linear(attention_dim, 1)
+        self.W_p = nn.Linear(decoder_dim, decoder_dim)
+
         self.tanh = nn.Tanh()
-        self.init_weights()
-    
-    '''
-    intalize weights
-    '''
-    def init_weights(self):
-        init.xavier_uniform_(self.w_v[1].weight)
-        init.xavier_uniform_(self.w_g[1].weight)
-        init.xavier_uniform_(self.w_h[1].weight)
-        init.xavier_uniform_(self.w_s[1].weight)
+        self.relu = nn.ReLU()
+        self.softmax = nn.Softmax(dim = 1)  # softmax layer to calculate weights
+
 
     '''
     input param:
-        spatial_feature: spatial image feature, V = [ v_1, v_2, ... v_num_pixels ] (batch_size, num_pixels = 49, decoder_dim)
+        V: spatial image feature, V = [ v_1, v_2, ... v_num_pixels ] (batch_size, num_pixels = 49, decoder_dim)
         h_t: hiddent state at time t (batch_size, decoder_dim)
         s_t: visual sentinel at time t (batch_size, decoder_dim)
     return:
-        c_t: context vector in spatial attention (batch_size, decoder_dim)
-        c_hat_t: context vector in adaptive attention (batch_size, decoder_dim)
-        alpha_t: attention weight in spation attention (batch_size, num_pixels)
-        alpha_hat_t: attention weight in adaptive attention (batch_size, num_pixels + 1)
+        spatial_out/adaptive_out: context vector in spatial/adaptive attention (batch_size, decoder_dim)
+        alpha_t/alpha_hat_t: attention weight in spatial/adaptive attention (batch_size, num_pixels)
         beta_t: sentinel gate in adaptive attention (batch_size, 1)
     '''
-    def forward(self, spatial_feature, h_t, s_t):
-        # W_v * V
-        visual_att = self.w_v(spatial_feature) # (batch_size, num_pixels = 49, attention_dim)
+    def forward(self, V, h_t, s_t, caption_model):
+
+        s_t = self.relu(self.affine_s(s_t)) # (batch_size, decoder_dim)
+        h_t = self.tanh(self.affine_h(h_t)) # (batch_size, decoder_dim)
+
         # W_g * h_t * 1^T
-        hidden_att = self.w_g(h_t).unsqueeze(1) # (batch_size, 1, attention_dim)
-        # tanh(W_v * V + W_g * h_t * 1^T)
-        att = self.tanh(visual_att + hidden_att)  # (batch_size, num_pixels, attention_dim)
-        # eq.6: z_t = w_h * att
-        z_t = self.w_h(att).squeeze(2)  # (batch_size, num_pixels)
-        # eq.7: α_t = softmax(z_t)
-        alpha_t = self.softmax(z_t)  # (batch_size, num_pixels)
+        hidden_att = self.w_g(h_t).unsqueeze(1)  # (batch_size, 1, attention_dim)
+        # W_v * V
+        visual_att = self.w_v(V) # (batch_size, num_pixels, attention_dim)
+        # W_s * s_t
+        sentinel_att = self.w_s(s_t) # (batch_size, attention_dim)
 
-        # eq.8: c_t = \sum_i^k α_{ti} v_{ti}
-        c_t = (spatial_feature * alpha_t.unsqueeze(2)).sum(dim = 1) # (batch_size, decoder_dim)
+        # --------------- Adaptive Attention ---------------
+        if caption_model == 'adaptive_att':
+            # [W_v * V; W_s * s_t]
+            extended = torch.cat([visual_att, sentinel_att.unsqueeze(1)], dim = 1) # (batch_size, num_pixels + 1, attention_dim)
+            #   [z_t; w_h * tanh(W_s * s_t + W_g * h_t)]
+            # = [w_h * tanh(W_v * V + W_g * h_t * 1^T); w_h * tanh(W_s * s_t + W_g * h_t)]
+            # = w_h * tanh([W_v * V; W_s * s_t] + W_g * [h_t * 1^T; h_t])
+            extended = self.tanh(extended + hidden_att) # (batch_size, num_pixels + 1, attention_dim)
+            z_t_extended = self.w_h(extended).squeeze(2) # (batch_size, num_pixels + 1)
+            # eq.12: \hat{α}_t 
+            # = softmax([z_t; w_h * tanh(W_s * s_t + W_g * h_t)])
+            # = softmax(z_t_extended)
+            alpha_hat_t = self.softmax(z_t_extended) # (batch_size, num_pixels + 1)
 
-        # w_h * tanh(W_s * s_t + W_g * h_t)
-        z_t_extended = self.w_h(self.tanh(self.w_s(s_t) + self.w_g(h_t))) # (batch_size, 1)
-        # [z_t; z_t_extended]
-        extended = torch.cat((z_t, z_t_extended), dim = 1) # (batch_size, num_pixels + 1)
-        # eq.12: \hat{α}_t = softmax([z_t; z_t_extended])
-        alpha_hat_t = self.softmax(extended) # (batch_size, num_pixels + 1)
-        # β_t = \hat{α}_t[k + 1]
-        beta_t = alpha_hat_t[:, -1].unsqueeze(1) # (batch_size, 1)
+            concat_feature = torch.cat([V, s_t.unsqueeze(1)], dim = 1) # (batch_size, num_pixels + 1, decoder_dim)
+            c_hat_t = (concat_feature * alpha_hat_t.unsqueeze(2)).sum(dim = 1) # (batch_size, decoder_dim)     
+            
+            # eq.13: W_p(c_hat_t + h_t) 
+            adaptive_out = self.tanh(self.W_p(c_hat_t + h_t))
 
-        # eq.11: \hat{c}_t = β_t * s_t + (1 - β_t) * c_t
-        c_hat_t = beta_t * s_t + (1 - beta_t) * c_t # (batch_size, decoder_dim)
+            # β_t = \hat{α}_t[k + 1]
+            beta_t = alpha_hat_t[:, -1].unsqueeze(1) # (batch_size, 1)
 
-        return c_t, c_hat_t, alpha_t, alpha_hat_t, beta_t
+            # remember, \hat{α} has been extended to num_pixels + 1 in adaptive attention, and we don't need the last element (used to compute beta) anymore
+            return adaptive_out, alpha_hat_t[:, :-1], beta_t
 
-        
+        # --------------- Spatial Attention ---------------
+        elif caption_model == 'spatial_att':
+            # tanh(W_v * V + W_g * h_t * 1^T)
+            att = self.tanh(visual_att + hidden_att) # (batch_size, num_pixels, attention_dim)
+            # eq.6: z_t = w_h * att
+            z_t = self.w_h(att).squeeze(2) # (batch_size, num_pixels)
+            # eq.7: α_t = softmax(z_t)
+            alpha_t = self.softmax(z_t) # (batch_size, num_pixels)
+
+            # eq.8: c_t = \sum_i^k α_{ti} v_{ti}
+            c_t = (V * alpha_t.unsqueeze(2)).sum(dim = 1) # (batch_size, decoder_dim)
+ 
+            spatial_out = self.tanh(self.W_p(c_t + h_t))
+
+            return spatial_out, alpha_t
+
+
 class Decoder(BasicDecoder):
     def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, dropout = 0.5, caption_model = 'adaptive_att'):
         super(Decoder, self).__init__(
@@ -183,14 +191,14 @@ class Decoder(BasicDecoder):
         # so the size of input should be embed_dim * 2 ([ w_t; v^g ] => embed_dim * 2)
         # self.decode_step = nn.LSTMCell(embed_dim * 2, decoder_dim, bias = True)  # LSTM
         self.decode_step = AdaptiveLSTMCell(embed_dim * 2, decoder_dim) # LSTM with visual sentinel
-        self.adaptive_attention = AdaptiveAttention(decoder_dim, attention_dim)
+        self.adaptive_attention = AdaptiveAttention(attention_dim, decoder_dim)
         self.caption_model = caption_model
 
     '''
     initialize cell state and hidden state for LSTM (a vector filled with 0)
 
     input param:
-        encoder_out: spatial image feature extracted by encoder (batch_size, num_pixels, decoder_dim)
+        spatial_feature: spatial image feature (batch_size, num_pixels, decoder_dim)
     return: 
         h: intial hidden state (batch_size, decoder_dim)
         c: intial cell state (batch_size, decoder_dim)
@@ -245,7 +253,7 @@ class Decoder(BasicDecoder):
         # decode lengths = actual lengths - 1
         decode_lengths = (caption_lengths - 1).tolist()
 
-        # create tensors to hold word predicion scores and alphas
+        # create tensors to hold word predicion scores
         predictions = torch.zeros(batch_size, max(decode_lengths), self.vocab_size).to(device)
 
         # concatenate word embeddings and global image features for input to LSTM
@@ -264,21 +272,20 @@ class Decoder(BasicDecoder):
             h, c, s = self.decode_step(x_t, (h[:batch_size_t], c[:batch_size_t])) # (batch_size_t, decoder_dim)
             
             # adaptive attention network
-            spatial_c, adaptive_c, _, _, _ = self.adaptive_attention(spatial_feature[:batch_size_t], h, s) # (batch_size_t, decoder_dim)
-            
-            # calc word probability over vocabulary
             if self.caption_model == 'adaptive_att':
-                # eq.13: p_t = softmax(W_p(\hat{c}_t + h_t))
-                preds = self.fc(self.dropout(adaptive_c + h)) # (batch_size_t, vocab_size)
+                att_output, _, _ = self.adaptive_attention(spatial_feature[:batch_size_t], h, s, self.caption_model) # (batch_size_t, decoder_dim)
             elif self.caption_model == 'spatial_att':
-                preds = self.fc(self.dropout(spatial_c + h)) # (batch_size_t, vocab_size)
+                att_output, _ = self.adaptive_attention(spatial_feature[:batch_size_t], h, s, self.caption_model) # (batch_size_t, decoder_dim)
+
+            # calc word probability over vocabulary
+            preds = self.fc(self.dropout(att_output)) # (batch_size_t, vocab_size)
             predictions[:batch_size_t, t, :] = preds
         
         return predictions, encoded_captions, decode_lengths, sort_ind
 
     
     '''
-    beam search (used in evaluation without Teacher Forcing and test)
+    beam search (used in evaluation without Teacher Forcing and inference)
     
     TODO: batched beam search
     therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
@@ -325,14 +332,17 @@ class Decoder(BasicDecoder):
         top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
         # tensor to store top k sequences' alphas; now they're just 1
         seqs_alpha = torch.ones(k, 1, enc_image_size, enc_image_size).to(device)  # (k, 1, enc_image_size, enc_image_size)
-        # tensor to store the top k sequences' betas; now they're just 1
-        seqs_beta = torch.ones(k, 1, 1).to(device) 
 
-        # lists to store completed sequences, their alphas, betas and scores
+        # lists to store completed sequences, their alphas and scores
         complete_seqs = list()
         complete_seqs_scores = list()
         complete_seqs_alpha = list()
-        complete_seqs_beta = list()
+
+        if self.caption_model == 'adaptive_att':
+            # tensor to store the top k sequences' betas; now they're just 1
+            seqs_beta = torch.ones(k, 1, 1).to(device) 
+            # lists to store completed sequences' betas
+            complete_seqs_beta = list()
 
         # start decoding
         step = 1
@@ -351,20 +361,16 @@ class Decoder(BasicDecoder):
             h, c, s = self.decode_step(x, (h, c)) # (s, decoder_dim)
             
             # adaptive attention network
-            spatial_c, adaptive_c, alpha, alpha_hat, beta = self.adaptive_attention(spatial_feature, h, s) # (s, decoder_dim), (s, decoder_dim), (s, num_pixels), (s, num_pixels + 1), (s, 1)
+            # spatial_c, adaptive_c, alpha, alpha_hat, beta = self.adaptive_attention(spatial_feature, h, s) # (s, decoder_dim), (s, decoder_dim), (s, num_pixels), (s, num_pixels + 1), (s, 1)
+            if self.caption_model == 'adaptive_att':
+                att_output, alpha, beta = self.adaptive_attention(spatial_feature, h, s, self.caption_model) # (s, decoder_dim), (s, num_pixels), (s, 1)
+            elif self.caption_model == 'spatial_att':
+                att_output, alpha = self.adaptive_attention(spatial_feature, h, s, self.caption_model) # (s, decoder_dim), (s, num_pixels)
             
             alpha = alpha.view(-1, enc_image_size, enc_image_size)  # (s, enc_image_size, enc_image_size)
 
-            # remember, \hat{alpha} has been extended to num_pixels + 1 in adaptive attention, and we don't need the last element (used to compute beta) here
-            alpha_hat = alpha_hat[:, :-1] # (s, num_pixels)
-            alpha_hat = alpha_hat.view(-1, enc_image_size, enc_image_size)  # (s, enc_image_size, enc_image_size)
-
             # calc word probability over vocabulary
-            if self.caption_model == 'adaptive_att':
-                # eq.13: p_t = softmax(W_p(\hat{c}_t + h_t))
-                scores = self.fc(adaptive_c + h) # (batch_size, vocab_size)
-            elif self.caption_model == 'spatial_att':
-                scores = self.fc(spatial_c + h) # (batch_size, vocab_size)
+            scores = self.fc(att_output) # (batch_size, vocab_size)
             scores = F.log_softmax(scores, dim = 1) # (s, vocab_size)
             
             # record score
@@ -384,11 +390,9 @@ class Decoder(BasicDecoder):
             
             # add new words, alphas and betas to sequences
             seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim = 1) # (s, step+1)
+            seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, enc_image_size, enc_image_size)
             if self.caption_model == 'adaptive_att':
-                seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha_hat[prev_word_inds].unsqueeze(1)], dim = 1) # (s, step+1, enc_image_size, enc_image_size)
-            elif self.caption_model == 'spatial_att':
-                seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, enc_image_size, enc_image_size)
-            seqs_beta = torch.cat([seqs_beta[prev_word_inds], beta[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step+1, 1)
+                seqs_beta = torch.cat([seqs_beta[prev_word_inds], beta[prev_word_inds].unsqueeze(1)], dim = 1)  # (s, step + 1, 1)
 
             # which sequences are incomplete (didn't reach <end>)?
             incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if next_word != word_map['<end>']]
@@ -397,9 +401,10 @@ class Decoder(BasicDecoder):
             # set aside complete sequences
             if len(complete_inds) > 0:
                 complete_seqs.extend(seqs[complete_inds].tolist())
-                complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
-                complete_seqs_beta.extend(seqs_beta[complete_inds])   
                 complete_seqs_scores.extend(top_k_scores[complete_inds])
+                complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
+                if self.caption_model == 'adaptive_att':
+                    complete_seqs_beta.extend(seqs_beta[complete_inds])   
 
             k -= len(complete_inds)  # reduce beam length accordingly
             if k == 0:
@@ -408,7 +413,8 @@ class Decoder(BasicDecoder):
             # proceed with incomplete sequences
             seqs = seqs[incomplete_inds]
             seqs_alpha = seqs_alpha[incomplete_inds]
-            seqs_beta = seqs_beta[incomplete_inds]
+            if self.caption_model == 'adaptive_att':
+                seqs_beta = seqs_beta[incomplete_inds]
             h = h[prev_word_inds[incomplete_inds]]
             c = c[prev_word_inds[incomplete_inds]]
             spatial_feature = spatial_feature[prev_word_inds[incomplete_inds]]
@@ -423,9 +429,10 @@ class Decoder(BasicDecoder):
         i = complete_seqs_scores.index(max(complete_seqs_scores))
         seq = complete_seqs[i]
         alphas = complete_seqs_alpha[i]
-        betas = complete_seqs_beta[i] 
-
-        # predict sentence
-        # predict = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
         
-        return seq, alphas, betas
+        if self.caption_model == 'adaptive_att':
+            betas = complete_seqs_beta[i]
+            return seq, alphas, betas
+
+        elif self.caption_model == 'spatial_att':
+            return seq, alphas

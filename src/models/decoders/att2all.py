@@ -173,7 +173,7 @@ class Decoder(BasicDecoder):
     
 
     '''
-    beam search (used in evaluation without Teacher Forcing and test)
+    beam search (used in evaluation without Teacher Forcing and inference)
     
     TODO: batched beam search
     therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!

@@ -1,6 +1,6 @@
 # Image Caption
 
-Pytorch re-implementation of some image caption papers. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
+Pytorch re-implementation of some image caption models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
 
 &nbsp;
 ## Model List
@@ -18,13 +18,13 @@ Pytorch re-implementation of some image caption papers. Based on [sgrvinod/a-PyT
 
     **Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning.** *Jiasen Lu, et al.* CVPR 2017. [[Paper]](http://openaccess.thecvf.com/content_cvpr_2017/papers/Lu_Knowing_When_to_CVPR_2017_paper.pdf) [[Code]](https://github.com/jiasenlu/AdaptiveAttention)
 
-You can train different models by configure `caption_model` in  [`config.py`](config.py). I have also took some [notes](https://renovamen.ink/2020/03/17/image-caption-papers/) (Chinese) of above mentioned models.
+You can train different models by configure `caption_model` in  [`config.py`](config.py). I have also took some [notes](https://renovamen.ink/2020/03/17/image-caption-papers/) (Chinese) of the above mentioned models.
 
 &nbsp;
 
 ## Environment
 
-- Python 3.6
+- Python 3.6.5
 - Pytorch 1.4.0 (along with torchvision)
 
 &nbsp;
@@ -67,14 +67,14 @@ Compute the BLEU-4 scores of a trained model on test set:
 python eval.py
 ```
 
-During training, the BLEU-4 scores on validation set will be computed after each epoch's validation. However, since I use teacher forcing (supplying the ground-truth as the input at each decode-step during validation, regardless of the word last generated), such BLEU-4 scores does not reflect the real performance. So you can also consider about using this script to compute the correct BLEU-4 scores of a specific model on validation set.
+During training, the BLEU-4 scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such BLEU-4 scores does not reflect the real performance. So you can also consider about using this script to compute the correct BLEU-4 scores of a specific model on validation set.
 
 
 ### Inference
 
 This is for when you have trained a model and want to generate a caption (and visualize the attention weights, if the model includes a attention network) for a specific image:
 
-First modify following things in [`test.py`](test.py).:
+First modify following things in [`inference.py`](inference.py).:
 
 ```python
 model_path = 'path_to_trained_model'
@@ -86,5 +86,21 @@ beam_size = 5 # beam size for beam search
 Then run:
 
 ```bash
-python test.py
+python inference.py
 ```
+
+&nbsp;
+## Results
+
+Here are some examples of the captions generated on images in test set.
+
+### Adaptive Attention
+![adaptive-1](docs/adaptive-attention/1.png)
+![adaptive-2](docs/adaptive-attention/2.png)
+
+
+### Attention
+
+![attention-1](docs/attention/1.png)
+![attention-2](docs/attention/2.png)
+![attention-3](docs/attention/3.png)
