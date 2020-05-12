@@ -62,7 +62,12 @@ def generate_caption(encoder, decoder, image_path, word_map, caption_model, beam
 if __name__ == '__main__':
 
     model_path = 'models/checkpoint_nic_adaptive_att_30k.pth.tar'
-    img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/757046028_ff5999f91b.jpg'
+    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3247052319_da8aba1983.jpg' # man in a four wheeler
+    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/127490019_7c5c08cb11.jpg' # woman golfing
+    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3238951136_2a99f1a1a8.jpg' # man on rock
+    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3287549827_04dec6fb6e.jpg' # snowboarder
+    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/491405109_798222cfd0.jpg' # girl smiling
+    img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3425835357_204e620a66.jpg' # man handstanding
     wordmap_path = 'flickr8k/output/wordmap_nic_adaptive_att_30k.json'
     beam_size = 5
     ifsmooth = False

@@ -94,13 +94,33 @@ python inference.py
 
 Here are some examples of the captions generated on images in test set.
 
-### Adaptive Attention
-![adaptive-1](docs/adaptive-attention/1.png)
-![adaptive-2](docs/adaptive-attention/2.png)
+&nbsp;
 
+### Adaptive Attention
+
+#### Good Results
+
+![adaptive-1](docs/adaptive-attention/success/1.png)
+![adaptive-2](docs/adaptive-attention/success/2.png)
+
+#### Bad Results
+
+![adaptive-2](docs/adaptive-attention/fail/1.png)
+
+Error: not crying...
+
+&nbsp;
 
 ### Attention
 
-![attention-1](docs/attention/1.png)
-![attention-2](docs/attention/2.png)
-![attention-3](docs/attention/3.png)
+#### Good Results
+
+![attention-1](docs/attention/success/1.png)
+![attention-2](docs/attention/success/2.png)
+![attention-3](docs/attention/success/3.png)
+
+#### Bad Results
+
+![attention-3](docs/attention/fail/1.png)
+
+Error: not a woman, and seems to recognize sleeves as jeans...

@@ -104,6 +104,11 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth = True):
     # subplot settings
     num_col = 5
     num_row = np.ceil(len(words) / float(num_col))
+    subplot_size = 4
+
+    # graph settings
+    fig = plt.figure(dpi = 100)
+    fig.set_size_inches(subplot_size * num_col, subplot_size * num_row)
 
     for t in range(len(words)):
         if t > 50:
