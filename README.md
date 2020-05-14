@@ -32,7 +32,7 @@ You can train different models by configuring `caption_model` in  [`config.py`](
 
 ## Dataset
 
-For dataset, I use [Flicker30k](http://shannon.cs.illinois.edu/DenotationGraph/data/index.html) and [Karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip). It is also okey to use [Flickr8k]((https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b) ) or [MSCOCO 2014](http://cocodataset.org/#download) (their splits and captions are also contained in Karpathy's split). If you want to use other datasets, you may have to create a JSON file which looks like Karpathy's JSON.
+For dataset, I use [Flicker30k](http://shannon.cs.illinois.edu/DenotationGraph/data/index.html) and [Karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip). It is also okey to use [Flickr8k](https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b) or [MSCOCO 2014](http://cocodataset.org/#download) (their splits and captions are also contained in Karpathy's split). If you want to use other datasets, you may have to create a JSON file which looks like Karpathy's JSON.
 
 &nbsp;
 
@@ -68,7 +68,7 @@ Compute evaluation metrics for a trained model on test set:
 python eval.py
 ```
 
-Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`src/metric`](src/metric), which are adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption).
+Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`src/metrics`](src/metric), which are adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption).
 
 During training, the BLEU-4 and CIDEr scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you can also consider about using this script to compute the correct scores for a specific trained model on validation set.
 
