@@ -1,4 +1,4 @@
-This folder contains implemention of decoders of different models.
+This folder contains implementions of decoders for different models.
 
 Models supported:
 

@@ -7,7 +7,7 @@ import numpy as np
 '''
 visualizes caption with weights and betas at every word
 
-input param:
+input params:
     image_path: path to image that has been captioned
     seq: caption
     alphas: attention weights
@@ -86,7 +86,7 @@ def visualize_att_beta(image_path, seq, alphas, rev_word_map, betas, smooth = Tr
 visualizes caption with weights at every word
 adapted from: https://github.com/kelvinxu/arctic-captions/blob/master/alpha_visualization.ipynb
 
-input param:
+input params:
     image_path: path to image that has been captioned
     seq: caption
     alphas: attention weights

@@ -13,7 +13,7 @@ from config import config
 '''
 Creates input files for training, validation, and test data.
 
-input param:
+input params:
     karpathy_json_path(str): path to Karpathy's split
     image_folder(str): path to dataset images
     captions_per_image(int): number of captions that are sampled per image

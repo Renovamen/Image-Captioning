@@ -6,7 +6,7 @@ from config import config
 '''
 fills embedding tensor with values from the uniform distribution
 
-input param:
+input params:
     embeddings: embedding tensor
 '''
 def init_embedding(embeddings):
@@ -18,7 +18,7 @@ def init_embedding(embeddings):
 '''
 creates an embedding tensor for the specified word map, for loading into the model
 
-input param:
+input params:
     emb_file: file containing embeddings (stored in GloVe format)
     word_map: word map
 
@@ -57,7 +57,7 @@ def load_embeddings(emb_file, word_map):
 '''
 clips gradients computed during backpropagation to avoid explosion of gradients
 
-input param:
+input params:
     optimizer: optimizer with the gradients to be clipped
     grad_clip: clip value
 '''
@@ -71,7 +71,7 @@ def clip_gradient(optimizer, grad_clip):
 '''
 save model checkpoint
 
-input param:
+input params:
     epoch: epoch number the current checkpoint have been trained for
     epochs_since_improvement: number of epochs since last improvement in BLEU-4 score
     encoder: encoder model
@@ -104,7 +104,7 @@ def save_checkpoint(epoch, epochs_since_improvement, encoder, decoder, encoder_o
 '''
 load a checkpoint, so that we can continue to train on it
 
-input param:
+input params:
     checkpoint_path: path of the checkpoint
     fine_tune_encoder: fine-tune encoder or not
     encoder_lr: learning rate of encoder (if fine-tune)
@@ -169,7 +169,7 @@ class AverageMeter(object):
 '''
 shrinks learning rate by a specified factor
 
-input param:
+input params:
     optimizer: optimizer whose learning rate must be shrunk
     shrink_factor: factor in interval (0, 1) to multiply learning rate with
 '''
@@ -184,7 +184,7 @@ def adjust_learning_rate(optimizer, shrink_factor):
 '''
 computes top-k accuracy, from predicted and true labels
 
-input param:
+input params:
     scores: scores from the model
     targets: true labels
     k: k in top-k accuracy

@@ -1,8 +1,8 @@
 import time
 import torch.backends.cudnn as cudnn
 from torch.nn.utils.rnn import pack_padded_sequence
-from nltk.translate.bleu_score import corpus_bleu
 from src.utils import *
+from src.metrics import Metrics
 
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
@@ -10,7 +10,7 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 an encoder-decoder pipeline
 Tearcher Forcing is used during training and validation
 
-input param:
+input params:
     epochs: we should train the model for __ epochs
     device: use GPU or not
     start_epoch: we should start training the model from __th epoch
@@ -18,8 +18,8 @@ input param:
     best_bleu4: best BLEU-4 score until now
     train_loader: DataLoader for training data
     val_loader: DataLoader for validation data
-    encoder: an encoder (based on CNN)
-    decoder: a decoder (based on LSTM)
+    encoder: encoder (based on CNN)
+    decoder: decoder (based on LSTM)
     encoder_optimizer: optimizer for encoder (Adam) (if fine-tune)
     decoder_optimizer: optimizer for decoder (Adam)
     loss_function: loss_function (cross entropy)
@@ -29,7 +29,7 @@ input param:
 '''
 class Trainer:
 
-    def __init__(self, caption_model, epochs, device, word_map,
+    def __init__(self, caption_model, epochs, device, word_map, rev_word_map,
                     start_epoch, epochs_since_improvement, best_bleu4,
                     train_loader, val_loader, 
                     encoder, decoder, 
@@ -43,6 +43,7 @@ class Trainer:
         self.caption_model = caption_model
         self.epochs = epochs
         self.word_map = word_map
+        self.rev_word_map = rev_word_map
 
         self.start_epoch = start_epoch
         self.epochs_since_improvement = epochs_since_improvement
@@ -67,7 +68,7 @@ class Trainer:
     '''
     train an epoch
 
-    input param:
+    input params:
         epoch: current epoch num
     '''
     def train(self, epoch):
@@ -159,7 +160,7 @@ class Trainer:
     '''
     validate an epoch
 
-    input param:
+    input params:
         val_loader: DataLoader for validation data
         encoder: an encoder (based on CNN)
         decoder: a decoder (based on LSTM)
@@ -181,7 +182,7 @@ class Trainer:
         start = time.time()
 
         ground_truth = list()  # ground_truth (true captions) for calculating BLEU-4 score
-        hypotheses = list()  # hypotheses (predictions)
+        prediction = list()  # prediction (predicted captions)
 
         # explicitly disable gradient calculation to avoid CUDA memory error
         # solves the issue #57
@@ -240,8 +241,8 @@ class Trainer:
 
                 # store ground truth captions and predicted captions of each image
                 # for n images, each of them has one prediction and multiple ground truths (a, b, c...):
-                # hypotheses = [hyp1, hyp2, ..., hypn]
-                # ground_truth = [[ref1a, ref1b, ref1c], ..., [refna, refnb]]
+                # prediction = [ [hyp1], [hyp2], ..., [hypn] ]
+                # ground_truth = [ [ [ref1a], [ref1b], [ref1c] ], ..., [ [refna], [refnb] ] ]
 
                 # ground truth
                 allcaps = allcaps[sort_ind]  # because images were sorted in the decoder
@@ -262,18 +263,21 @@ class Trainer:
                 for j, p in enumerate(preds):
                     temp_preds.append(preds[j][:decode_lengths[j]])  # remove pads
                 preds = temp_preds
-                hypotheses.extend(preds)
+                prediction.extend(preds)
 
-                assert len(ground_truth) == len(hypotheses)
+                assert len(ground_truth) == len(prediction)
 
-            # calc BLEU-4 score
-            bleu4 = corpus_bleu(ground_truth, hypotheses)
+            # calc BLEU-4 and CIDEr score
+            metrics = Metrics(ground_truth, prediction, self.rev_word_map)
+            bleu4 = metrics.belu()[3] # BLEU-4
+            cider = metrics.cider() # CIDEr
 
             print(
-                '\n * LOSS - {loss.avg:.3f}, TOP-5 ACCURACY - {top5.avg:.3f}, BLEU-4 - {bleu}\n'.format(
+                '\n * LOSS - {loss.avg:.3f}, TOP-5 ACCURACY - {top5.avg:.3f}, BLEU-4 - {bleu}, CIDEr - {cider}\n'.format(
                     loss = losses,
                     top5 = top5accs,
-                    bleu = bleu4
+                    bleu = bleu4,
+                    cider = cider
                 )
             )
 

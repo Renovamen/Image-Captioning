@@ -1,6 +1,6 @@
 '''
-This script is used to compute the correct BLEU-4 scores of a checkpoint 
-on the val and test sets without Teacher Forcing.
+This script is used to compute the correct BLEU, CIDEr, ROUGE and METEOR scores 
+of a checkpoint on the val and test sets without Teacher Forcing.
 '''
 
 import sys
@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from src.dataloader import *
 from src.utils import *
+from src.metrics import Metrics
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
@@ -24,8 +25,9 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 # some path
 data_folder = config.dataset_output_path  # folder with data files saved by preprocess.py
 data_name = config.dataset_basename  # base name shared by data files
+
 checkpoint = config.model_path + 'best_checkpoint_' + data_name + '.pth.tar'  # model checkpoint
-word_map_file = config.dataset_output_path + 'wordmap_' + config.dataset_basename + '.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
+word_map_file = config.dataset_output_path + 'wordmap_' + data_name + '.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
 
 
 # load model
@@ -59,33 +61,12 @@ normalize = transforms.Normalize(
 
 
 '''
-this is just for test, ignore it
-'''
-def show_sentence(ground_truth, prediction):
-
-    for cnt, each_image in enumerate(ground_truth):
-        print("Image " + str(cnt) + ":")
-
-        # ground truth
-        print("ground truth:")
-        for cap in each_image:
-            sentence = [rev_word_map[ix] for ix in cap]
-            print(' '.join(sentence))
-        
-        # prediction
-        print("prediction:")
-        sentence = [rev_word_map[ix] for ix in prediction[cnt]]
-        print(' '.join(sentence))
-
-        print("\n")
-
-
-'''
 Evaluation
 
-input param:
+input params:
     beam_size: beam size at which to generate captions for evaluation
                set beam_size = 1 if you want to use greedy search
+
 return: 
     bleu4: BLEU-4 score
 '''
@@ -105,10 +86,10 @@ def evaluate(beam_size):
         pin_memory = True
     )
 
-    # store ground truth captions and predicted captions of each image
+    # store ground truth captions and predicted captions (word id) of each image
     # for n images, each of them has one prediction and multiple ground truths (a, b, c...):
-    # prediction = [pred1, pred2, ..., predn]
-    # ground_truth = [[gt1a, gt1b, gt1c], ..., [gtna, gtnb]]
+    # prediction = [ [pred1], [pred2], ..., [predn] ]
+    # ground_truth = [ [ [gt1a], [gt1b], [gt1c] ], ..., [ [gtna], [gtnb] ] ]
     ground_truth = list()
     prediction = list()
 
@@ -139,14 +120,24 @@ def evaluate(beam_size):
 
         assert len(ground_truth) == len(prediction)
 
-    # calculate BLEU-4 scores
-    bleu4 = corpus_bleu(ground_truth, prediction)
+    # calculate metrics
+    metrics = Metrics(ground_truth, prediction, rev_word_map)
+    scores = metrics.all_metrics()
 
-    # show_sentence(ground_truth, prediction)
-
-    return bleu4
+    return scores
 
 
 if __name__ == '__main__':
+    
     beam_size = 5
-    print("\nBLEU-4 score @ beam size of %d is %.4f." % (beam_size, evaluate(beam_size)))
+
+    (bleu1, bleu2, bleu3, bleu4), cider, rouge, meteor = evaluate(beam_size)
+
+    print("\nScores @ beam size of %d are:" % beam_size)
+    print("   BLEU-1: %.4f" % bleu1)
+    print("   BLEU-2: %.4f" % bleu2)
+    print("   BLEU-3: %.4f" % bleu3)
+    print("   BLEU-4: %.4f" % bleu4)
+    print("   CIDEr: %.4f" % cider)
+    print("   ROUGE-L: %.4f" % rouge)
+    print("   METEOR: %.4f" % meteor)

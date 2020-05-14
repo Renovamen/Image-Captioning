@@ -27,6 +27,9 @@ def set_trainer():
     word_map_file = os.path.join(data_folder, 'wordmap_' + data_name + '.json')
     with open(word_map_file, 'r') as j:
         word_map = json.load(j)
+    
+    # create id2word map
+    rev_word_map = {v: k for k, v in word_map.items()}
 
     # initialize encoder and decoder
     if config.checkpoint is None:
@@ -114,6 +117,7 @@ def set_trainer():
         epochs = config.epochs,
         device = device,
         word_map = word_map,
+        rev_word_map = rev_word_map,
         start_epoch = start_epoch, 
         epochs_since_improvement = epochs_since_improvement, 
         best_bleu4 = best_bleu4,

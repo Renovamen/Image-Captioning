@@ -18,7 +18,7 @@ Pytorch re-implementation of some image caption models. Based on [sgrvinod/a-PyT
 
     **Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning.** *Jiasen Lu, et al.* CVPR 2017. [[Paper]](http://openaccess.thecvf.com/content_cvpr_2017/papers/Lu_Knowing_When_to_CVPR_2017_paper.pdf) [[Code]](https://github.com/jiasenlu/AdaptiveAttention)
 
-You can train different models by configure `caption_model` in  [`config.py`](config.py). I have also took some [notes](https://renovamen.ink/2020/03/17/image-caption-papers/) (Chinese) of the above mentioned models.
+You can train different models by configuring `caption_model` in  [`config.py`](config.py).
 
 &nbsp;
 
@@ -26,12 +26,13 @@ You can train different models by configure `caption_model` in  [`config.py`](co
 
 - Python 3.6.5
 - Pytorch 1.4.0 (along with torchvision)
+- java 1.8.0 (only for computing METEOR)
 
 &nbsp;
 
 ## Dataset
 
-For dataset, I use [Flicker8k](https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b) and [Karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip). It is also okey to use Flickr30k or MSCOCO (their splits and captions are also contained in Karpathy's split). If you want to use other datasets, you may should create a JSON file which looks like Karpathy's JSON.
+For dataset, I use [Flicker30k](http://shannon.cs.illinois.edu/DenotationGraph/data/index.html) and [Karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip). It is also okey to use [Flickr8k]((https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b) ) or [MSCOCO 2014](http://cocodataset.org/#download) (their splits and captions are also contained in Karpathy's split). If you want to use other datasets, you may have to create a JSON file which looks like Karpathy's JSON.
 
 &nbsp;
 
@@ -61,18 +62,20 @@ python train.py
 
 ### Evaluation
 
-Compute the BLEU-4 scores of a trained model on test set:
+Compute evaluation metrics for a trained model on test set:
 
 ```bash
 python eval.py
 ```
 
-During training, the BLEU-4 scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such BLEU-4 scores does not reflect the real performance. So you can also consider about using this script to compute the correct BLEU-4 scores of a specific model on validation set.
+Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`src/metric`](src/metric), which are adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption).
+
+During training, the BLEU-4 and CIDEr scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you can also consider about using this script to compute the correct scores for a specific trained model on validation set.
 
 
 ### Inference
 
-This is for when you have trained a model and want to generate a caption (and visualize the attention weights, if the model includes a attention network) for a specific image:
+This is for when you have trained a model and want to generate a caption (and visualize the attention weights, if the model contains an attention network) for a specific image:
 
 First modify following things in [`inference.py`](inference.py).:
 
@@ -92,16 +95,19 @@ python inference.py
 &nbsp;
 ## Results
 
-Here are some examples of the captions generated on images in test set.
+Here are some examples of the captions generated on images in test set. 
 
-&nbsp;
+I haven't fine-tuned CNN. You'd probably want to try fine-tuning it to get better results.
+
 
 ### Adaptive Attention
 
 #### Good Results
-
-![adaptive-1](docs/adaptive-attention/success/1.png)
 ![adaptive-2](docs/adaptive-attention/success/2.png)
+
+#### Okey Results
+
+![adaptive-1](docs/adaptive-attention/success/1.png)Errors: two boys, not a chair...
 
 #### Bad Results
 
@@ -109,7 +115,6 @@ Here are some examples of the captions generated on images in test set.
 
 Error: not crying...
 
-&nbsp;
 
 ### Attention
 
@@ -117,10 +122,13 @@ Error: not crying...
 
 ![attention-1](docs/attention/success/1.png)
 ![attention-2](docs/attention/success/2.png)
+
+#### Okey Results
+
 ![attention-3](docs/attention/success/3.png)
 
 #### Bad Results
 
 ![attention-3](docs/attention/fail/1.png)
 
-Error: not a woman, and seems to recognize sleeves as jeans...
+Errors: not a woman, and seems to recognize sleeves as jeans...

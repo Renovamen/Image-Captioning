@@ -12,7 +12,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 '''
 class Attention(): soft attention network (in decoder)
 
-input param:
+input params:
     encoder_dim: feature size of encoded images
     decoder_dim: dimention of decoder's hidden layer
     attention_dim: dimention of attention network
@@ -28,7 +28,7 @@ class Attention(nn.Module):
         self.softmax = nn.Softmax(dim = 1)  # softmax layer to calculate weights
 
     '''
-    input param:
+    input params:
         encoder_out: feature map extracted by encoder (batch_size, num_pixels, encoder_dim)
         decoder_hidden: previous hidden state (h_{t-1}) of decoder (batch_size, decoder_dim)
     return: 
@@ -53,7 +53,7 @@ class Attention(nn.Module):
 '''
 class Decoder(): decoder with attention
 
-input param:
+input params:
     attention_dim: dimention of attention network
     embed_dim: dimention of word embeddings
     decoder_dim: dimention of decoder's hidden layer
@@ -85,7 +85,7 @@ class Decoder(BasicDecoder):
     '''
     initialize cell state and hidden state for LSTM (based on feature map)
 
-    input param:
+    input params:
         encoder_out: feature map extracted by encoder (batch_size, num_pixels, encoder_dim)
     return: 
         h: intial hidden state (batch_size, decoder_dim)
@@ -99,7 +99,7 @@ class Decoder(BasicDecoder):
         return h, c
 
     '''
-    input param:
+    input params:
         encoder_out: feature map extracted by encoder (batch_size, num_pixels, encoder_dim)
         encoded_captions: caption after one-hot encoding (batch_size, max_caption_length)
         caption_lengths: caption length (batch_size, 1)
@@ -109,7 +109,7 @@ class Decoder(BasicDecoder):
         encoded_captions: sorted encoded captions
         decode lengths: actual caption length - 1
         alphas: attention weights α
-        sort indices
+        sort_ind: sorted indices
     '''
     def forward(self, encoder_out, encoded_captions, caption_lengths):
         batch_size = encoder_out.size(0)
@@ -178,7 +178,7 @@ class Decoder(BasicDecoder):
     TODO: batched beam search
     therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
 
-    input param:
+    input params:
         encoder_out: feature map extracted by encoder (1, num_pixels, encoder_dim)
         beam_size(int): beam size
         word_map(dict): word2id map

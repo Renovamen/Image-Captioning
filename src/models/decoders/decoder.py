@@ -7,7 +7,7 @@ import torchvision
 '''
 class Decoder(): a template decoder
 
-input param:
+input params:
     embed_dim: dimention of word embeddings
     decoder_dim: dimention of decoder's hidden layer
     vocab_size: size of vocab vocabulary
@@ -39,7 +39,7 @@ class Decoder(nn.Module):
     '''
     load pretrained word embeddings（optional）
 
-    input param：
+    input params：
         embeddings: pretrained word embeddings
     '''
     def load_pretrained_embeddings(self, embeddings):
@@ -48,7 +48,7 @@ class Decoder(nn.Module):
     '''
     fine_tune embedding layer or not（optional, only makes sense when using pretrained embeddings）
     
-    input param:
+    input params:
         fine_tune: fine_tune or not
     '''
     def fine_tune_embeddings(self, fine_tune = True):
@@ -59,7 +59,7 @@ class Decoder(nn.Module):
     initialize cell state and hidden state for LSTM
     should be implemented by child class
 
-    input param:
+    input params:
         encoder_out: encoder's output
     '''
     def init_hidden_state(self, encoder_out):
@@ -69,7 +69,7 @@ class Decoder(nn.Module):
     forward
     should be implemented by child class
 
-    input param:
+    input params:
         encoder_out: encoder's output
         encoded_captions: caption after one-hot encoding (batch_size, max_caption_length)
         caption_lengths: caption length (batch_size, 1)

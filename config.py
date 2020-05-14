@@ -15,7 +15,7 @@ class config:
     dataset_image_path = os.path.join(base_path, 'flickr8k/images/')
     dataset_output_path = os.path.join(base_path, 'flickr8k/output/') # folder with data files saved by preprocess.py
     dataset_caption_path = os.path.join(base_path, 'flickr8k/dataset.json')
-    dataset_basename = 'test1' # any name you want
+    dataset_basename = 'nic_adaptive_att_30k' # any name you want
 
     # preprocess parameters
     captions_per_image = 5

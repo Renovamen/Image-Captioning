@@ -9,7 +9,7 @@ import os
 class CaptionDataset(Dataset):
 
     '''
-    input param:
+    input params:
         data_folder: folder where data files are stored
         data_name: base name of processed datasets
         split: 'train', 'val', 'test'

@@ -12,7 +12,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 '''
 class Decoder(): decoder
 
-input param:
+input params:
     embed_dim: dimention of word embeddings
     decoder_dim: dimention of decoder's hidden layer
     vocab_size: size of vocab vocabulary
@@ -32,7 +32,7 @@ class Decoder(BasicDecoder):
     '''
     initialize cell state and hidden state for LSTM (a vector filled with 0)
 
-    input param:
+    input params:
         encoder_out: image feature extracted by encoder (batch_size, embed_dim)
     return: 
         h: intial hidden state (batch_size, decoder_dim)
@@ -44,7 +44,7 @@ class Decoder(BasicDecoder):
         return h, c
 
     '''
-    input param:
+    input params:
         encoder_out: image feature extracted by encoder (batch_size, embed_dim)
         encoded_captions: caption after one-hot encoding (batch_size, max_caption_length)
         caption_lengths: caption length (batch_size, 1)
@@ -53,7 +53,7 @@ class Decoder(BasicDecoder):
         predictions: word probability over vocabulary predicted by model
         encoded_captions: sorted encoded captions
         decode lengths: actual caption length - 1
-        sort indices
+        sort_ind: sorted indices
     '''
     def forward(self, encoder_out, encoded_captions, caption_lengths):
 
@@ -114,7 +114,7 @@ class Decoder(BasicDecoder):
     TODO: batched beam search
     therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
 
-    input param:
+    input params:
         encoder_out: image feature extracted by encoder (1, embed_dim)
         beam_size(int): beam size
         word_map(dict): word2id map

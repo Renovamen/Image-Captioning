@@ -9,7 +9,7 @@ import torchvision
 '''
 class ResNet101(): (pretrained) ResNet-101 network
 
-input param:
+input params:
     encoded_image_size: size of resized feature map
 '''
 class ResNet101(nn.Module):
@@ -31,7 +31,7 @@ class ResNet101(nn.Module):
         self.fine_tune()
 
     '''
-    input param:
+    input params:
         images: input image(batch_size, 3, image_size = 256, image_size = 256)
     return: 
         feature_map: feature map after resized (batch_size, 2048, encoded_image_size = 7, encoded_image_size = 7)
@@ -42,7 +42,7 @@ class ResNet101(nn.Module):
         return feature_map
 
     '''
-    input param:
+    input params:
         fine_tune: fine-tune CNN（conv block 2-4）or not
     '''
     def fine_tune(self, fine_tune = True):
@@ -59,7 +59,7 @@ class EncoderResNet():
     encoder for paper: Show and Tell: A Neural Image Caption Generator. CVPR 2015.
     without attention
 
-input param:
+input params:
     encoded_image_size: size of resized feature map
     embed_dim: dimention of the output feature (same as dimension of word embeddings)
 '''
@@ -79,7 +79,7 @@ class EncoderResNet(nn.Module):
         )
 
     '''
-    input param:
+    input params:
         images: input image (batch_size, 3, image_size = 256, image_size = 256)
     return: 
         out: feature of this image (batch_size, embed_dim = 512)
@@ -97,7 +97,7 @@ class AttentionEncoderResNet():
     encoder for paper: Show, Attend and Tell: Neural Image Caption Generation with Visual Attention. ICML 2015.
     with attention
 
-input param:
+input params:
     encoded_image_size: size of resized feature map
 '''
 class AttentionEncoderResNet(nn.Module):
@@ -106,7 +106,7 @@ class AttentionEncoderResNet(nn.Module):
         self.CNN = ResNet101(encoded_image_size)
 
     '''
-    input param:
+    input params:
         images: input image (batch_size, 3, image_size = 256, image_size = 256)
     return: 
         feature_map: feature map of the image (batch_size, num_pixels = 49, encoder_dim = 2048)
@@ -130,7 +130,7 @@ class AdaptiveAttentionEncoderResNet():
     encoder for papaer: Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning. CVPR 2017.
     with attention
 
-input param:
+input params:
     encoded_image_size: size of resized feature map
     decoder_dim: dimention of spatial image feature (same as dimension of decoder's hidden layer)
     embed_dim: dimention of global image feature (same as dimension of word embeddings)
@@ -157,7 +157,7 @@ class AdaptiveAttentionEncoderResNet(nn.Module):
         )
 
     '''
-    input param:
+    input params:
         images: input image (batch_size, 3, image_size = 256, image_size = 256)
     return: 
         feature_map: orignal feature map of the image
