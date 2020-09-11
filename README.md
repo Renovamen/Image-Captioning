@@ -1,6 +1,6 @@
-# Image Caption
+# Image Captioning
 
-Pytorch re-implementation of some image caption models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
+Pytorch re-implementation of some image captioning models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
 
 &nbsp;
 ## Model List
@@ -25,8 +25,12 @@ You can train different models by configuring `caption_model` in  [`config.py`](
 ## Environment
 
 - Python 3.6.5
+
 - Pytorch 1.4.0 (along with torchvision)
+
 - java 1.8.0 (only for computing METEOR)
+
+- [Tensorflow](https://www.tensorflow.org/) 2.3.0 (optional, you don't need this if you disable [tensorboard](https://github.com/tensorflow/tensorboard))
 
 &nbsp;
 
@@ -58,6 +62,12 @@ To train a model, just run:
 
 ```bash
 python train.py
+```
+
+If you have enabled tensorboard (`tensorboard = True` in [`config.py`](config.py)), you can visualize the losses and accuracies during training by:
+
+```bash
+tensorboard --logdir=<your_log_dir>
 ```
 
 ### Evaluation

@@ -3,7 +3,6 @@ Compute the correct BLEU, CIDEr, ROUGE and METEOR scores for a
 checkpoint on the val or test sets without Teacher Forcing.
 '''
 
-import sys
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data

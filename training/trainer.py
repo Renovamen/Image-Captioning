@@ -1,8 +1,8 @@
 import time
-import torch.backends.cudnn as cudnn
 from torch.nn.utils.rnn import pack_padded_sequence
 from utils.common import *
 from metrics import Metrics
+from .tensorboard import TensorboardWriter
 
 '''
 an encoder-decoder pipeline
@@ -24,6 +24,8 @@ input params:
     grad_clip: gradient threshold in clip gradients
     tau: penalty term τ for doubly stochastic attention in paper: show, attend and tell
     fine_tune_encoder: fine-tune encoder or not
+    tensorboard: enable tensorboard or not?
+    log_dir (str): folder for saving logs for tensorboard
 '''
 class Trainer:
 
@@ -34,7 +36,8 @@ class Trainer:
                     encoder_optimizer, decoder_optimizer,
                     loss_function,
                     grad_clip, tau,
-                    fine_tune_encoder):
+                    fine_tune_encoder,
+                    tensorboard = False, log_dir = None):
 
         self.device = device # GPU / CPU
 
@@ -57,10 +60,12 @@ class Trainer:
 
         self.tau = tau
         self.grad_clip = grad_clip
-
         self.fine_tune_encoder = fine_tune_encoder
 
         self.print_freq = 100  # print training/validation stats every __ batches
+        # setup visualization writer instance                
+        self.writer = TensorboardWriter(log_dir, tensorboard)
+        self.len_epoch = len(self.train_loader)
 
 
     '''
@@ -76,8 +81,8 @@ class Trainer:
 
         batch_time = AverageMeter()  # forward prop. + back prop. time
         data_time = AverageMeter()  # data loading time
-        losses = AverageMeter()  # loss (per word decoded)
-        top5accs = AverageMeter()  # top5 accuracy
+        losses = AverageMeter(tag = 'loss', writer = self.writer)  # loss (per word decoded)
+        top5accs = AverageMeter(tag = 'top5acc', writer = self.writer)  # top5 accuracy
 
         start = time.time()
 
@@ -133,6 +138,10 @@ class Trainer:
             if self.encoder_optimizer is not None:
                 self.encoder_optimizer.step()
 
+            # set step for tensorboard
+            step = (epoch - 1) * self.len_epoch + i
+            self.writer.set_step(step = step, mode = 'train')
+
             # keep track of metrics
             top5 = accuracy(scores, targets, 5)
             losses.update(loss.item(), sum(decode_lengths))
@@ -154,6 +163,7 @@ class Trainer:
                                                                             loss = losses,
                                                                             top5 = top5accs)
                 )
+
 
     '''
     validate an epoch

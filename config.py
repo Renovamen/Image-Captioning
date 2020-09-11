@@ -43,3 +43,7 @@ class config:
     workers = 1  # num_workers in dataloader
     tau = 1.  # penalty term τ for doubly stochastic attention in paper: show, attend and tell
               # you only need to set this when 'caption_model' is set to 'att2all'
+    # tensorboard
+    tensorboard = True  # enable tensorboard or not?
+    log_dir = os.path.join(base_path, 'logs/adaptive_att/')  # folder for saving logs for tensorboard
+                                                             # only makes sense when `tensorboard = True`

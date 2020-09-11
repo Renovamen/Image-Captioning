@@ -1,14 +1,14 @@
-import sys
-from config import config
+from torch import nn
 import torch.optim
 import torch.utils.data
+import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
-from torch import nn
 import models.encoders as Encoder
 import models.decoders as Decoder
 from training.trainer import Trainer
 from utils.dataloader import *
 from utils.common import *
+from config import config
 
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
@@ -128,7 +128,9 @@ def set_trainer():
         loss_function = loss_function,
         grad_clip = config.grad_clip,
         tau = config.tau,
-        fine_tune_encoder = config.fine_tune_encoder
+        fine_tune_encoder = config.fine_tune_encoder,
+        tensorboard = config.tensorboard, 
+        log_dir = config.log_dir
     )
 
     return trainer
