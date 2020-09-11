@@ -1,18 +1,16 @@
 import sys
 from config import config
-sys.path += [config.base_path]
-
 import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn
+import models.encoders as Encoder
+import models.decoders as Decoder
+from training.trainer import Trainer
+from utils.dataloader import *
+from utils.common import *
 
-import src.models.encoders as Encoder
-import src.models.decoders as Decoder
-from src.trainer import Trainer
-from src.dataloader import *
-from src.utils import *
-
+cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
 def set_trainer():
 

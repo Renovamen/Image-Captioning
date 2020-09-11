@@ -68,7 +68,7 @@ Compute evaluation metrics for a trained model on test set:
 python eval.py
 ```
 
-Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`src/metrics`](src/metric), which are adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption).
+Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`metrics`](metrics), which are adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption).
 
 During training, the BLEU-4 and CIDEr scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you can also consider about using this script to compute the correct scores for a specific trained model on validation set.
 
@@ -77,7 +77,7 @@ During training, the BLEU-4 and CIDEr scores on validation set will be computed 
 
 This is for when you have trained a model and want to generate a caption (and visualize the attention weights, if the model contains an attention network) for a specific image:
 
-First modify following things in [`inference.py`](inference.py).:
+First modify following things in [`inference.py`](inference.py):
 
 ```python
 model_path = 'path_to_trained_model'

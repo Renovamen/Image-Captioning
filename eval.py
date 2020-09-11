@@ -1,12 +1,9 @@
 '''
-This script is used to compute the correct BLEU, CIDEr, ROUGE and METEOR scores 
-of a checkpoint on the val and test sets without Teacher Forcing.
+Compute the correct BLEU, CIDEr, ROUGE and METEOR scores for a 
+checkpoint on the val or test sets without Teacher Forcing.
 '''
 
 import sys
-from config import config
-sys.path += [config.base_path]
-
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
@@ -14,10 +11,10 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from nltk.translate.bleu_score import corpus_bleu
 from tqdm import tqdm
-
-from src.dataloader import *
-from src.utils import *
-from src.metrics import Metrics
+from config import config
+from utils.dataloader import *
+from utils.common import *
+from metrics import Metrics
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
@@ -26,8 +23,8 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 data_folder = config.dataset_output_path  # folder with data files saved by preprocess.py
 data_name = config.dataset_basename  # base name shared by data files
 
-checkpoint = config.model_path + 'best_checkpoint_' + data_name + '.pth.tar'  # model checkpoint
 word_map_file = config.dataset_output_path + 'wordmap_' + data_name + '.json'  # word map, ensure it's the same the data was encoded with and the model was trained with
+checkpoint = config.model_path + 'best_checkpoint_' + config.model_basename + '.pth.tar'  # model checkpoint
 
 
 # load model

@@ -7,21 +7,21 @@ import os
 class config:
 
     # global parameters
-    base_path = '/Users/zou/Desktop/Image-Caption' # path of this project
-    caption_model = 'adaptive_att' # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
-                                   # refer to README.md for more info about each model
+    base_path = '/Users/zou/Desktop/Image-Captioning'  # path of this project
+    caption_model = 'adaptive_att'  # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
+                                    # refer to README.md for more info about each model
     
     # dataset parameters
-    dataset_image_path = os.path.join(base_path, 'flickr8k/images/')
-    dataset_output_path = os.path.join(base_path, 'flickr8k/output/') # folder with data files saved by preprocess.py
-    dataset_caption_path = os.path.join(base_path, 'flickr8k/dataset.json')
-    dataset_basename = 'nic_adaptive_att_30k' # any name you want
+    dataset_image_path = os.path.join(base_path, 'data/flickr8k/images/')
+    dataset_caption_path = os.path.join(base_path, 'data/flickr8k/dataset.json')
+    dataset_output_path = os.path.join(base_path, 'data/output/flickr8k/')  # folder with data files saved by preprocess.py
+    dataset_basename = 'flickr8k'  # any name you want
 
     # preprocess parameters
     captions_per_image = 5
-    min_word_freq = 5 # words with frenquence lower than this value will be mapped to '<UNK>'
-    max_caption_len = 50 # captions with length higher than this value will be ignored,
-                         # with length lower than this value will be padded from right side to fit this length
+    min_word_freq = 5  # words with frenquence lower than this value will be mapped to '<UNK>'
+    max_caption_len = 50  # captions with length higher than this value will be ignored,
+                          # with length lower than this value will be padded from right side to fit this length
 
     # model parameters
     emb_dim = 512  # dimension of word embeddings
@@ -29,7 +29,8 @@ class config:
                          # you only need to set this when the model includes an attention network
     decoder_dim = 512  # dimension of decoder's hidden layer
     dropout = 0.5
-    model_path = os.path.join(base_path, 'models/') # path to save models
+    model_path = os.path.join(base_path, 'checkpoints/')  # path to save checkpoints
+    model_basename = 'adaptive_att_8k'  # any name you want
 
     # training parameters
     epochs = 20

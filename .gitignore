@@ -1,5 +1,5 @@
-/models/
-flickr8k
+checkpoints/
+data/
 
 # Editors
 .vscode/

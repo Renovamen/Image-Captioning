@@ -6,8 +6,7 @@ import torchvision.transforms as transforms
 # from scipy.misc import imread, imresize
 from imageio import imread
 from PIL import Image
-
-from src.visual import *
+from utils.visual import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -61,14 +60,14 @@ def generate_caption(encoder, decoder, image_path, word_map, caption_model, beam
 
 if __name__ == '__main__':
 
-    model_path = 'models/checkpoint_nic_adaptive_att_30k.pth.tar'
+    model_path = 'checkpoints/checkpoint_adaptive_att_8k.pth.tar'
     img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3247052319_da8aba1983.jpg' # man in a four wheeler
     # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/127490019_7c5c08cb11.jpg' # woman golfing
     # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3238951136_2a99f1a1a8.jpg' # man on rock
     # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3287549827_04dec6fb6e.jpg' # snowboarder
     # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/491405109_798222cfd0.jpg' # girl smiling
     # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3425835357_204e620a66.jpg' # man handstanding
-    wordmap_path = 'flickr8k/output/wordmap_nic_adaptive_att_30k.json'
+    wordmap_path = 'data/output/flickr8k/wordmap_flickr8k.json'
     beam_size = 5
     ifsmooth = False
 
