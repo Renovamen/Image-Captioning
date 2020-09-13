@@ -1,4 +1,4 @@
-This folder contains implementations of some evaluation metrics, adopted from [tylin/coco-caption](https://github.com/tylin/coco-caption). 
+This folder contains implementations of some evaluation metrics, adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption). 
 
 Now supports:
 
