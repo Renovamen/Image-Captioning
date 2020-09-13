@@ -40,7 +40,12 @@ def set_trainer():
         # ------------- word embeddings -------------
         if config.embed_pretrain == True:
             # load pre-trained word embeddings for words in the word map
-            embeddings, embed_dim = load_embeddings(config.embed_path, word_map)
+            embeddings, embed_dim = load_embeddings(
+                emb_file = config.embed_path, 
+                word_map = word_map,
+                output_folder = config.dataset_output_path,
+                output_basename = config.dataset_basename
+            )
         else:
             # or initialize embedding weights randomly
             embeddings = None
