@@ -51,7 +51,6 @@ def load_embeddings(emb_file, word_map, output_folder, output_basename):
             emb_word = line[0]
             embedding = list(map(lambda t: float(t), filter(lambda n: n and not n.isspace(), line[1:])))
 
-            continue
             # ignore word if not in train_vocab
             if emb_word not in vocab:
                 continue
