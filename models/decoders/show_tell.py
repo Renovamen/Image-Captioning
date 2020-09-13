@@ -13,15 +13,21 @@ class Decoder(): decoder
 
 input params:
     embed_dim: dimention of word embeddings
+    embeddings: word embeddings
+    fine_tune: allow fine-tuning of embedding layer?
+               (only makes sense when using pre-trained embeddings)
     decoder_dim: dimention of decoder's hidden layer
     vocab_size: size of vocabulary
     dropout: dropout
 '''
 class Decoder(BasicDecoder):
-    def __init__(self, embed_dim, decoder_dim, vocab_size, dropout = 0.5):
+    def __init__(self, embed_dim, embeddings, fine_tune, 
+                 decoder_dim, vocab_size, dropout = 0.5):
         super(Decoder, self).__init__(
-            embed_dim = embed_dim, 
-            decoder_dim = decoder_dim, 
+            embed_dim = embed_dim,
+            embeddings = embeddings,
+            fine_tune = fine_tune,
+            decoder_dim = decoder_dim,
             vocab_size = vocab_size,
             dropout = dropout
         )

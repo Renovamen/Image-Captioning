@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from tqdm import tqdm
 
 '''
 fills embedding tensor with values from the uniform distribution
@@ -7,7 +8,7 @@ fills embedding tensor with values from the uniform distribution
 input params:
     embeddings: embedding tensor
 '''
-def init_embedding(embeddings):
+def init_embeddings(embeddings):
 
     bias = np.sqrt(3.0 / embeddings.size(1))
     torch.nn.init.uniform_(embeddings, -bias, bias)
@@ -25,28 +26,28 @@ return:
 '''
 def load_embeddings(emb_file, word_map):
 
-    # Find embedding dimension
+    # find embedding dimension
     with open(emb_file, 'r') as f:
-        emb_dim = len(f.readline().split(' ')) - 1
+        embed_dim = len(f.readline().split(' ')) - 1
+        num_lines = len(f.readlines())
 
     vocab = set(word_map.keys())
 
-    # Create tensor to hold embeddings, initialize
-    embeddings = torch.FloatTensor(len(vocab), emb_dim)
-    init_embedding(embeddings)
+    # create tensor to hold embeddings, initialize
+    embeddings = torch.FloatTensor(len(vocab), embed_dim)
+    init_embeddings(embeddings)
 
-    # Read embedding file
-    print("\nLoading embeddings...")
-    for line in open(emb_file, 'r'):
+    # read embedding file
+    for line in tqdm(open(emb_file, 'r'), total = num_lines, desc = 'Loading embeddings'):
         line = line.split(' ')
 
         emb_word = line[0]
         embedding = list(map(lambda t: float(t), filter(lambda n: n and not n.isspace(), line[1:])))
 
-        # Ignore word if not in train_vocab
+        # ignore word if not in train_vocab
         if emb_word not in vocab:
             continue
 
         embeddings[word_map[emb_word]] = torch.FloatTensor(embedding)
 
-    return embeddings, emb_dim
+    return embeddings, embed_dim

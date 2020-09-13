@@ -9,12 +9,16 @@ class Decoder(): a template decoder
 
 input params:
     embed_dim: dimention of word embeddings
+    embeddings: word embeddings
+    fine_tune: allow fine-tuning of embedding layer?
+               (only makes sense when using pre-trained embeddings)
     decoder_dim: dimention of decoder's hidden layer
     vocab_size: size of vocab vocabulary
     dropout: dropout
 '''
 class Decoder(nn.Module):
-    def __init__(self, embed_dim, decoder_dim, vocab_size, dropout = 0.5):
+    def __init__(self, embed_dim, embeddings, fine_tune, 
+                 decoder_dim, vocab_size, dropout = 0.5):
 
         super(Decoder, self).__init__()
 
@@ -23,37 +27,36 @@ class Decoder(nn.Module):
         self.decoder_dim = decoder_dim
         self.dropout = dropout
 
-        self.embedding = nn.Embedding(vocab_size, embed_dim)  # word embedding layer
+        # embedding layer
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.set_embeddings(embeddings, fine_tune)
+        
         self.dropout = nn.Dropout(p = self.dropout)
         self.fc = nn.Linear(decoder_dim, vocab_size)  # layer to calc word probability over vocabulary
         self.init_weights()  # initialize embedding and fc layer with the uniform distribution
 
     '''
+    set weights of embedding layer
+
+    input param:
+        embeddings: word embeddings
+        fine_tune: allow fine-tuning of embedding layer? 
+                   (only makes sense when using pre-trained embeddings)
+    '''
+    def set_embeddings(self, embeddings, fine_tune = True):
+        if embeddings is None:
+            # initialize embedding layer with the uniform distribution
+            self.embedding.weight.data.uniform_(-0.1, 0.1)
+        else:
+            # initialize embedding layer with pre-trained embeddings
+            self.embedding.weight = nn.Parameter(embeddings, requires_grad = fine_tune)
+
+    '''
     initialize embedding and fc layer with the uniform distribution, bias = 0
     '''
     def init_weights(self):
-        self.embedding.weight.data.uniform_(-0.1, 0.1)
         self.fc.bias.data.fill_(0)
         self.fc.weight.data.uniform_(-0.1, 0.1)
-
-    '''
-    load pretrained word embeddings（optional）
-
-    input params：
-        embeddings: pretrained word embeddings
-    '''
-    def load_pretrained_embeddings(self, embeddings):
-        self.embedding.weight = nn.Parameter(embeddings)
-
-    '''
-    fine_tune embedding layer or not（optional, only makes sense when using pretrained embeddings）
-    
-    input params:
-        fine_tune: fine_tune or not
-    '''
-    def fine_tune_embeddings(self, fine_tune = True):
-        for p in self.embedding.parameters():
-            p.requires_grad = fine_tune
 
     '''
     initialize cell state and hidden state for LSTM

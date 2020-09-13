@@ -8,6 +8,7 @@ import models.decoders as Decoder
 from training.trainer import Trainer
 from utils.dataloader import *
 from utils.common import *
+from utils.embedding import *
 from config import config
 
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
@@ -29,15 +30,24 @@ def set_trainer():
     # create id2word map
     rev_word_map = {v: k for k, v in word_map.items()}
 
-    # initialize encoder and decoder
+    # initialize encoder-decoder framework
     if config.checkpoint is None:
         start_epoch = 0
         epochs_since_improvement = 0
         best_bleu4 = 0.
         caption_model = config.caption_model
+        
+        # ------------- word embeddings -------------
+        if config.embed_pretrain == True:
+            # load pre-trained word embeddings for words in the word map
+            embeddings, embed_dim = load_embeddings(config.embed_path, word_map)
+        else:
+            # or initialize embedding weights randomly
+            embeddings = None
+            embed_dim = config.embed_dim
 
-        # set up encoder based on chosen model (in 'config.py')
-        encoder = Encoder.setup()
+        # ----------------- encoder ------------------
+        encoder = Encoder.setup(embed_dim = embed_dim)
         encoder.CNN.fine_tune(config.fine_tune_encoder)
         # optimizer for encoder's CNN (if fine-tune)
         if config.fine_tune_encoder:
@@ -47,9 +57,13 @@ def set_trainer():
             )
         else:
             encoder_optimizer = None
-
-        # set up decoder based on chosen model (in 'config.py')
-        decoder = Decoder.setup(vocab_size = len(word_map))
+            
+        # ----------------- decoder ------------------
+        decoder = Decoder.setup(
+            vocab_size = len(word_map),
+            embed_dim = embed_dim,
+            embeddings = embeddings
+        )
         # optimizer for decoder
 
         # print(len(list(decoder.parameters())))

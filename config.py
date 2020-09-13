@@ -8,7 +8,7 @@ class config:
 
     # global parameters
     base_path = '/Users/zou/Desktop/Image-Captioning'  # path of this project
-    caption_model = 'adaptive_att'  # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
+    caption_model = 'att2all'  # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
                                     # refer to README.md for more info about each model
     
     # dataset parameters
@@ -23,14 +23,21 @@ class config:
     max_caption_len = 50  # captions with length higher than this value will be ignored,
                           # with length lower than this value will be padded from right side to fit this length
 
+    # word embeddings parameters
+    embed_pretrain = True  # false: initialize embedding weights randomly
+                         # true: load pre-trained word embeddings
+    embed_path = os.path.join(base_path, 'data/glove/glove.6B.300d.txt')  # only makes sense when `embed_pretrain = True`
+    embed_dim = 512  # dimension of word embeddings
+                   # only makes sense when `embed_pretrain = False`
+    fine_tune_embeddings = True  # fine-tune word embeddings?
+
     # model parameters
-    emb_dim = 512  # dimension of word embeddings
     attention_dim = 512  # dimension of attention network
                          # you only need to set this when the model includes an attention network
     decoder_dim = 512  # dimension of decoder's hidden layer
     dropout = 0.5
     model_path = os.path.join(base_path, 'checkpoints/')  # path to save checkpoints
-    model_basename = 'adaptive_att_8k'  # any name you want
+    model_basename = 'att2all_test'  # any name you want
 
     # training parameters
     epochs = 20

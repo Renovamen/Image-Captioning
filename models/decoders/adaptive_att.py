@@ -182,11 +182,27 @@ class AdaptiveAttention(nn.Module):
             return spatial_out, alpha_t
    
 
+'''
+class Decoder(): decoder with attention
+
+input params:
+    attention_dim: dimention of attention network
+    embed_dim: dimention of word embeddings
+    embeddings: word embeddings
+    fine_tune: allow fine-tuning of embedding layer?
+               (only makes sense when using pre-trained embeddings)
+    decoder_dim: dimention of decoder's hidden layer
+    vocab_size: size of vocab vocabulary
+    dropout: dropout
+'''
 class Decoder(BasicDecoder):
-    def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, dropout = 0.5, caption_model = 'adaptive_att'):
+    def __init__(self, embed_dim, embeddings, fine_tune, attention_dim,
+                 decoder_dim, vocab_size, dropout = 0.5, caption_model = 'adaptive_att'):
         super(Decoder, self).__init__(
-            embed_dim = embed_dim, 
-            decoder_dim = decoder_dim, 
+            embed_dim = embed_dim,
+            embeddings = embeddings,
+            fine_tune = fine_tune,
+            decoder_dim = decoder_dim,
             vocab_size = vocab_size,
             dropout = dropout
         )

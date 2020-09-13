@@ -1,6 +1,6 @@
 # Image Captioning
 
-Pytorch re-implementation of some image captioning models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
+PyTorch re-implementation of some image captioning models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
 
 &nbsp;
 ## Model List
@@ -26,7 +26,7 @@ You can train different models by configuring `caption_model` in  [`config.py`](
 
 - Python 3.6.5
 
-- Pytorch 1.4.0 (along with torchvision)
+- PyTorch 1.4.0 (along with torchvision)
 
 - java 1.8.0 (only for computing METEOR)
 
