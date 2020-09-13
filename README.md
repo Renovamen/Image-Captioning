@@ -44,7 +44,7 @@ For dataset, I use [Flicker30k](http://shannon.cs.illinois.edu/DenotationGraph/d
 
 ### Configuration
 
-Configure parameters in  [`config.py`](config.py). Refer to this file for more information about each config item.
+Configure parameters in  [`config.py`](config.py). Refer to this file for more information about each config parameter.
 
 
 ### Preprocess
@@ -54,6 +54,14 @@ First of all, you should preprocess the images along with their captions and sto
 ```bash
 python preprocess.py
 ```
+
+### Pre-trained Word Embeddings
+
+If you would like to use pre-trained word embeddings (like [GloVe](https://github.com/stanfordnlp/GloVe)), just set `embed_pretrain = True` and the path to the pre-trained vectors file (`embed_path` ) in [`config.py`](config.py). You could also choose to fine-tune or not with the `fine_tune_embeddings` parameter.
+
+The `load_embeddings` method (in [`utils/embedding.py`](utils/embedding.py)) would create a cache under folder `dataset_output_path`, so that it could load the embeddings quicker the next time.
+
+Or if you want to randomly initialize the embedding layer's weights, set `embed_pretrain = False` and specify the size of embedding layer (`embed_dim`).
 
 
 ### Train
@@ -70,7 +78,7 @@ If you have enabled tensorboard (`tensorboard = True` in [`config.py`](config.py
 tensorboard --logdir=<your_log_dir>
 ```
 
-### Evaluation
+### Test
 
 Compute evaluation metrics for a trained model on test set:
 
@@ -80,7 +88,7 @@ python test.py
 
 Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`metrics`](metrics), which are adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption).
 
-During training, the BLEU-4 and CIDEr scores on validation set will be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you can also consider about using this script to compute the correct scores for a specific trained model on validation set.
+During training, the BLEU-4 and CIDEr scores on validation set would be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you could also consider about using this script to compute the correct scores for a specific trained model on validation set.
 
 
 ### Inference
