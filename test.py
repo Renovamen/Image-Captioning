@@ -1,19 +1,19 @@
-'''
-Compute the correct BLEU, CIDEr, ROUGE and METEOR scores for a 
-checkpoint on the val or test sets without Teacher Forcing.
-'''
+"""
+Compute the correct BLEU, CIDEr, ROUGE and METEOR scores for a checkpoint on
+the validation or test sets without Teacher Forcing.
+"""
 
+import json
+from tqdm import tqdm
+import torch
 import torch.backends.cudnn as cudnn
-import torch.optim
-import torch.utils.data
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from nltk.translate.bleu_score import corpus_bleu
-from tqdm import tqdm
-from config import config
-from utils.dataloader import *
-from utils.common import *
+from torch.utils.data import DataLoader
+
+from utils import CaptionDataset, load_checkpoint
 from metrics import Metrics
+from config import config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
@@ -43,7 +43,7 @@ caption_model = checkpoint['caption_model']
 # load word map (word2ix)
 with open(word_map_file, 'r') as j:
     word_map = json.load(j)
-    
+
 vocab_size = len(word_map)
 
 # create ix2word map
@@ -55,30 +55,29 @@ normalize = transforms.Normalize(
     std = [0.229, 0.224, 0.225]
 )
 
+def evaluate(beam_size: int) -> float:
+    """
+    Parameters
+    ----------
+    beam_size : int
+        Beam size at which to generate captions for evaluation. Set beam_size
+        to 1 if you want to use greedy search.
 
-'''
-Evaluation
-
-input params:
-    beam_size: beam size at which to generate captions for evaluation
-               set beam_size = 1 if you want to use greedy search
-
-return: 
-    bleu4: BLEU-4 score
-'''
-def evaluate(beam_size):
-
-    # DataLoader
-    loader = torch.utils.data.DataLoader(
+    Returns
+    -------
+    bleu4 : float
+        BLEU-4 score
+    """
+    loader = DataLoader(
         CaptionDataset(
-            data_folder, data_name, 'test', 
+            data_folder, data_name, 'test',
             transform = transforms.Compose([normalize])
         ),
-        # TODO: batched beam search
-        # therefore, DO NOT use a batch_size greater than 1 - IMPORTANT!
-        batch_size = 1, 
-        shuffle = True, 
-        num_workers = 1, 
+        # TODO: batched beam search. Therefore, DO NOT use a batch_size greater
+        # than 1 - IMPORTANT!
+        batch_size = 1,
+        shuffle = True,
+        num_workers = 1,
         pin_memory = True
     )
 
@@ -91,7 +90,6 @@ def evaluate(beam_size):
 
     # for each image
     for i, (image, caps, caplens, allcaps) in enumerate(tqdm(loader, desc="Evaluating at beam size " + str(beam_size))):
-
         # move to GPU device, if available
         image = image.to(device)  # (1, 3, 256, 256)
 
@@ -110,7 +108,7 @@ def evaluate(beam_size):
             seq, _ = decoder.beam_search(encoder_out, beam_size, word_map)
         elif caption_model == 'adaptive_att':
             seq, _, _ = decoder.beam_search(encoder_out, beam_size, word_map)
-    
+
         pred = [w for w in seq if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}]
         prediction.append(pred)
 
@@ -124,7 +122,6 @@ def evaluate(beam_size):
 
 
 if __name__ == '__main__':
-    
     beam_size = 5
 
     (bleu1, bleu2, bleu3, bleu4), cider, rouge, meteor = evaluate(beam_size)

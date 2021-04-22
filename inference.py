@@ -1,31 +1,51 @@
-import torch
-import torch.nn.functional as F
-import numpy as np
 import json
-import torchvision.transforms as transforms
+import numpy as np
+from typing import Dict
 # from scipy.misc import imread, imresize
 from imageio import imread
 from PIL import Image
-from utils.visual import *
+import torch
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+
+from utils import visualize_att_beta, visualize_att
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-'''
-read an image and caption it with beam search
+def generate_caption(
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    image_path: str,
+    word_map: Dict[str, int],
+    caption_model: str,
+    beam_size: int = 3
+):
+    """
+    Generate a caption on a given image using beam search.
 
-input params:
-    encoder: encoder model
-    decoder: decoder model
-    image_path: path to image
-    word_map: word map
-    beam_size: number of sequences to consider at each decode-step
-return: 
-    seq: caption
-    alphas: weights for visualization
-''' 
-def generate_caption(encoder, decoder, image_path, word_map, caption_model, beam_size = 3):
+    Parameters
+    ----------
+    encoder : torch.nn.Module
+        Encoder model
 
-    # Read image and process
+    decoder : torch.nn.Module
+        Decoder model
+
+    image_path : str
+        Path to image
+
+    word_map : Dict[str, int]
+        Word map
+
+    beam_size : int, optional, default=3
+        Number of sequences to consider at each decode-step
+
+    return:
+        seq: caption
+        alphas: weights for visualization
+    """
+
+    # read and process an image
     img = imread(image_path)
     if len(img.shape) == 2:
         img = img[:, :, np.newaxis]
@@ -36,16 +56,16 @@ def generate_caption(encoder, decoder, image_path, word_map, caption_model, beam
     img = img / 255.
     img = torch.FloatTensor(img).to(device)
     normalize = transforms.Normalize(
-                    mean = [0.485, 0.456, 0.406],
-                    std = [0.229, 0.224, 0.225]
-                )
+        mean = [0.485, 0.456, 0.406],
+        std = [0.229, 0.224, 0.225]
+    )
     transform = transforms.Compose([normalize])
     image = transform(img)  # (3, 256, 256)
 
     # encode
     image = image.unsqueeze(0)  # (1, 3, 256, 256)
     encoder_out = encoder(image)  # (1, enc_image_size, enc_image_size, encoder_dim)
- 
+
     # prediction (beam search)
     if caption_model == 'show_tell':
         seq = decoder.beam_search(encoder_out, beam_size, word_map)
@@ -59,20 +79,19 @@ def generate_caption(encoder, decoder, image_path, word_map, caption_model, beam
 
 
 if __name__ == '__main__':
-
     model_path = 'checkpoints/checkpoint_adaptive_att_8k.pth.tar'
-    img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3247052319_da8aba1983.jpg' # man in a four wheeler
-    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/127490019_7c5c08cb11.jpg' # woman golfing
-    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3238951136_2a99f1a1a8.jpg' # man on rock
-    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3287549827_04dec6fb6e.jpg' # snowboarder
-    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/491405109_798222cfd0.jpg' # girl smiling
-    # img = '/Users/zou/Desktop/Image-Aesthetic-Caption/other-datasets/flickr8k/Flicker8k_Dataset/3425835357_204e620a66.jpg' # man handstanding
+    img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/3247052319_da8aba1983.jpg' # man in a four wheeler
+    # img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/127490019_7c5c08cb11.jpg' # woman golfing
+    # img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/3238951136_2a99f1a1a8.jpg' # man on rock
+    # img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/3287549827_04dec6fb6e.jpg' # snowboarder
+    # img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/491405109_798222cfd0.jpg' # girl smiling
+    # img = '/Users/zou/Renovamen/Developing/Image-Captioning/data/flickr8k/images/3425835357_204e620a66.jpg' # man handstanding
     wordmap_path = 'data/output/flickr8k/wordmap_flickr8k.json'
     beam_size = 5
     ifsmooth = False
 
     # load model
-    checkpoint = torch.load(model_path, map_location = str(device))
+    checkpoint = torch.load(model_path, map_location=str(device))
 
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
@@ -84,10 +103,10 @@ if __name__ == '__main__':
 
     caption_model = checkpoint['caption_model']
 
-    # Load word map (word2ix)
+    # load word map (word2ix)
     with open(wordmap_path, 'r') as j:
         word_map = json.load(j)
-    rev_word_map = {v: k for k, v in word_map.items()} # ix2word
+    rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
     # encoder-decoder with beam search
     if caption_model == 'show_tell':
@@ -102,8 +121,8 @@ if __name__ == '__main__':
         visualize_att(
             image_path = img,
             seq = seq,
-            rev_word_map = rev_word_map, 
-            alphas = alphas, 
+            rev_word_map = rev_word_map,
+            alphas = alphas,
             smooth = ifsmooth
         )
 
@@ -111,7 +130,7 @@ if __name__ == '__main__':
         seq, alphas, betas = generate_caption(encoder, decoder, img, word_map, caption_model, beam_size)
         alphas = torch.FloatTensor(alphas)
         visualize_att_beta(
-            image_path = img, 
+            image_path = img,
             seq = seq,
             rev_word_map = rev_word_map,
             alphas = alphas,

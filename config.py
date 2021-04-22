@@ -1,16 +1,15 @@
-'''
-Define parameters here.
-'''
+"""
+Define the hyper parameters here.
+"""
 
 import os
 
 class config:
-
     # global parameters
-    base_path = '/Users/zou/Desktop/Image-Captioning'  # path of this project
-    caption_model = 'att2all'  # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
+    base_path = os.path.abspath(os.path.dirname(__file__))  # path to this project
+    caption_model = 'adaptive_att'  # 'show_tell', 'att2all', 'adaptive_att', 'spatial_att'
                                     # refer to README.md for more info about each model
-    
+
     # dataset parameters
     dataset_image_path = os.path.join(base_path, 'data/flickr8k/images/')
     dataset_caption_path = os.path.join(base_path, 'data/flickr8k/dataset.json')
@@ -25,10 +24,10 @@ class config:
 
     # word embeddings parameters
     embed_pretrain = True  # false: initialize embedding weights randomly
-                         # true: load pre-trained word embeddings
+                           # true: load pre-trained word embeddings
     embed_path = os.path.join(base_path, 'data/glove/glove.6B.300d.txt')  # only makes sense when `embed_pretrain = True`
     embed_dim = 512  # dimension of word embeddings
-                   # only makes sense when `embed_pretrain = False`
+                     # only makes sense when `embed_pretrain = False`
     fine_tune_embeddings = True  # fine-tune word embeddings?
 
     # model parameters
@@ -37,7 +36,7 @@ class config:
     decoder_dim = 512  # dimension of decoder's hidden layer
     dropout = 0.5
     model_path = os.path.join(base_path, 'checkpoints/')  # path to save checkpoints
-    model_basename = 'att2all_test'  # any name you want
+    model_basename = 'adaptive_att_8k'  # any name you want
 
     # training parameters
     epochs = 20
@@ -47,7 +46,7 @@ class config:
     decoder_lr = 4e-4  # learning rate of decoder
     grad_clip = 5.  # gradient threshold in clip gradients
     checkpoint = None  # path to load checkpoint, None if none
-    workers = 1  # num_workers in dataloader
+    workers = 0  # num_workers in dataloader
     tau = 1.  # penalty term τ for doubly stochastic attention in paper: show, attend and tell
               # you only need to set this when 'caption_model' is set to 'att2all'
     # tensorboard

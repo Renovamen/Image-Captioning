@@ -1,6 +1,4 @@
-This folder contains implementions of decoders for different models.
-
-Models supported:
+This folder contains implementations of decoders of different models. Now supports:
 
 - [show_tell.py](show_tell.py)
 

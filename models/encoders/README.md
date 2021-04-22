@@ -1,3 +1,3 @@
-This folder contains implementions of encoders for different models.
+This folder contains implementions of encoders of different models. Now supports:
 
-Now support ResNet101 based encoder only.
+- ResNet-101

@@ -1,45 +1,104 @@
 import time
+from typing import Optional, Dict
+import torch
+from torch import nn, optim
+from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pack_padded_sequence
-from utils.common import *
+
+from utils import TensorboardWriter, AverageMeter, save_checkpoint, accuracy, \
+    clip_gradient, adjust_learning_rate
 from metrics import Metrics
-from .tensorboard import TensorboardWriter
 
-'''
-an encoder-decoder pipeline
-Tearcher Forcing is used during training and validation
-
-input params:
-    epochs: we should train the model for __ epochs
-    device: use GPU or not
-    start_epoch: we should start training the model from __th epoch
-    epochs_since_improvement: number of epochs since last improvement in BLEU-4 score
-    best_bleu4: best BLEU-4 score until now
-    train_loader: DataLoader for training data
-    val_loader: DataLoader for validation data
-    encoder: encoder (based on CNN)
-    decoder: decoder (based on LSTM)
-    encoder_optimizer: optimizer for encoder (Adam) (if fine-tune)
-    decoder_optimizer: optimizer for decoder (Adam)
-    loss_function: loss function (cross entropy)
-    grad_clip: gradient threshold in clip gradients
-    tau: penalty term τ for doubly stochastic attention in paper: show, attend and tell
-    fine_tune_encoder: fine-tune encoder or not
-    tensorboard: enable tensorboard or not?
-    log_dir (str): folder for saving logs for tensorboard
-'''
 class Trainer:
+    """
+    Encoder-decoder pipeline. Tearcher Forcing is used during training and validation.
 
-    def __init__(self, caption_model, epochs, device, word_map, rev_word_map,
-                    start_epoch, epochs_since_improvement, best_bleu4,
-                    train_loader, val_loader, 
-                    encoder, decoder, 
-                    encoder_optimizer, decoder_optimizer,
-                    loss_function,
-                    grad_clip, tau,
-                    fine_tune_encoder,
-                    tensorboard = False, log_dir = None):
+    Parameters
+    ----------
+    caption_model : str
+        Type of the caption model
 
-        self.device = device # GPU / CPU
+    epochs : int
+        We should train the model for __ epochs
+
+    device : torch.device
+        Use GPU or not
+
+    word_map : Dict[str, int]
+        Word2id map
+
+    rev_word_map : Dict[int, str]
+        Id2word map
+
+    start_epoch : int
+        We should start training the model from __th epoch
+
+    epochs_since_improvement : int
+        Number of epochs since last improvement in BLEU-4 score
+
+    best_bleu4 : float
+        Best BLEU-4 score until now
+
+    train_loader : DataLoader
+        DataLoader for training data
+
+    val_loader : DataLoader
+        DataLoader for validation data
+
+    encoder : nn.Module
+        Encoder (based on CNN)
+
+    decoder : nn.Module
+        Decoder (based on LSTM)
+
+    encoder_optimizer : optim.Optimizer
+        Optimizer for encoder (Adam) (if fine-tune)
+
+    decoder_optimizer : optim.Optimizer
+        Optimizer for decoder (Adam)
+
+    loss_function : nn.Module
+        Loss function (cross entropy)
+
+    grad_clip : float
+        Gradient threshold in clip gradients
+
+    tau : float
+        Penalty term τ for doubly stochastic attention in paper: show, attend and tell
+
+    fine_tune_encoder : bool
+        Fine-tune encoder or not
+
+    tensorboard : bool, optional, default=False
+        Enable tensorboard or not?
+
+    log_dir : str, optional
+        Path to the folder to save logs for tensorboard
+    """
+    def __init__(
+        self,
+        caption_model: str,
+        epochs: int,
+        device: torch.device,
+        word_map: Dict[str, int],
+        rev_word_map: Dict[int, str],
+        start_epoch: int,
+        epochs_since_improvement: int,
+        best_bleu4: float,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        encoder: nn.Module,
+        decoder: nn.Module,
+        encoder_optimizer: optim.Optimizer,
+        decoder_optimizer: optim.Optimizer,
+        loss_function: nn.Module,
+        grad_clip: float,
+        tau: float,
+        fine_tune_encoder: bool,
+        tensorboard: bool = False,
+        log_dir: Optional[str] = None
+    ) -> None:
+        self.device = device  # GPU / CPU
 
         self.caption_model = caption_model
         self.epochs = epochs
@@ -63,26 +122,26 @@ class Trainer:
         self.fine_tune_encoder = fine_tune_encoder
 
         self.print_freq = 100  # print training/validation stats every __ batches
-        # setup visualization writer instance                
+        # setup visualization writer instance
         self.writer = TensorboardWriter(log_dir, tensorboard)
         self.len_epoch = len(self.train_loader)
 
+    def train(self, epoch: int) -> None:
+        """
+        Train an epoch
 
-    '''
-    train an epoch
-
-    input params:
-        epoch: current epoch num
-    '''
-    def train(self, epoch):
-
+        Parameters
+        ----------
+        epoch : int
+            Current number of epoch
+        """
         self.decoder.train()  # train mode (dropout and batchnorm is used)
         self.encoder.train()
 
         batch_time = AverageMeter()  # forward prop. + back prop. time
         data_time = AverageMeter()  # data loading time
-        losses = AverageMeter(tag = 'loss', writer = self.writer)  # loss (per word decoded)
-        top5accs = AverageMeter(tag = 'top5acc', writer = self.writer)  # top5 accuracy
+        losses = AverageMeter(tag='loss', writer=self.writer)  # loss (per word decoded)
+        top5accs = AverageMeter(tag='top5acc', writer=self.writer)  # top5 accuracy
 
         start = time.time()
 
@@ -103,14 +162,14 @@ class Trainer:
                 scores, caps_sorted, decode_lengths, alphas, sort_ind = self.decoder(imgs, caps, caplens)
             else:
                 scores, caps_sorted, decode_lengths, sort_ind = self.decoder(imgs, caps, caplens)
-    
+
             # since we decoded starting with <start>, the targets are all words after <start>, up to <end>
             targets = caps_sorted[:, 1:]
 
             # remove timesteps that we didn't decode at, or are pads
             # pack_padded_sequence is an easy trick to do this
-            scores = pack_padded_sequence(scores, decode_lengths, batch_first = True)[0]
-            targets = pack_padded_sequence(targets, decode_lengths, batch_first = True)[0]
+            scores = pack_padded_sequence(scores, decode_lengths, batch_first=True)[0]
+            targets = pack_padded_sequence(targets, decode_lengths, batch_first=True)[0]
 
             # calc loss
             loss = self.loss_function(scores, targets)
@@ -123,7 +182,7 @@ class Trainer:
             self.decoder_optimizer.zero_grad()
             if self.encoder_optimizer is not None:
                 self.encoder_optimizer.zero_grad()
-            
+
             # backward
             loss.backward()
 
@@ -140,7 +199,7 @@ class Trainer:
 
             # set step for tensorboard
             step = (epoch - 1) * self.len_epoch + i
-            self.writer.set_step(step = step, mode = 'train')
+            self.writer.set_step(step=step, mode='train')
 
             # keep track of metrics
             top5 = accuracy(scores, targets, 5)
@@ -157,28 +216,24 @@ class Trainer:
                     'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     'Data Load Time {data_time.val:.3f} ({data_time.avg:.3f})\t'
                     'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                    'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(epoch, i, len(self.train_loader),
-                                                                            batch_time = batch_time,
-                                                                            data_time = data_time, 
-                                                                            loss = losses,
-                                                                            top5 = top5accs)
+                    'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(
+                        epoch, i, len(self.train_loader),
+                        batch_time = batch_time,
+                        data_time = data_time,
+                        loss = losses,
+                        top5 = top5accs
+                    )
                 )
 
+    def validate(self) -> float:
+        """
+        Validate an epoch.
 
-    '''
-    validate an epoch
-
-    input params:
-        val_loader: DataLoader for validation data
-        encoder: an encoder (based on CNN)
-        decoder: a decoder (based on LSTM)
-        loss_function: loss function (cross entropy)
-
-    return: 
-        bleu4: BLEU-4 score
-    '''
-    def validate(self):
-
+        Returns
+        -------
+        bleu4 : float
+            BLEU-4 score
+        """
         self.decoder.eval()  # eval mode (no dropout or batchnorm)
         if self.encoder is not None:
             self.encoder.eval()
@@ -203,16 +258,16 @@ class Trainer:
                 caps = caps.to(self.device)
                 caplens = caplens.to(self.device)
 
-                # forward encoder 
+                # forward encoder
                 if self.encoder is not None:
                     imgs = self.encoder(imgs)
-                
-                # forward decoder 
+
+                # forward decoder
                 if self.caption_model == 'att2all':
                     scores, caps_sorted, decode_lengths, alphas, sort_ind = self.decoder(imgs, caps, caplens)
                 else:
                     scores, caps_sorted, decode_lengths, sort_ind = self.decoder(imgs, caps, caplens)
-                    
+
                 # since we decoded starting with <start>, the targets are all words after <start>, up to <end>
                 targets = caps_sorted[:, 1:]
 
@@ -241,9 +296,9 @@ class Trainer:
                     print('Validation: [{0}/{1}]\t'
                         'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                         'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                        'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t'.format(i, len(self.val_loader), 
+                        'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t'.format(i, len(self.val_loader),
                                                                                     batch_time = batch_time,
-                                                                                    loss = losses, 
+                                                                                    loss = losses,
                                                                                     top5 = top5accs)
                     )
 
@@ -291,8 +346,7 @@ class Trainer:
 
         return bleu4
 
-
-    def run_train(self):
+    def run_train(self) -> None:
         # epochs
         for epoch in range(self.start_epoch, self.epochs):
 
@@ -322,13 +376,13 @@ class Trainer:
 
             # save checkpoint
             save_checkpoint(
-                epoch = epoch, 
-                epochs_since_improvement = self.epochs_since_improvement, 
-                encoder = self.encoder, 
-                decoder = self.decoder, 
+                epoch = epoch,
+                epochs_since_improvement = self.epochs_since_improvement,
+                encoder = self.encoder,
+                decoder = self.decoder,
                 encoder_optimizer = self.encoder_optimizer,
                 decoder_optimizer = self.decoder_optimizer,
                 caption_model = self.caption_model,
-                bleu4 = recent_bleu4, 
+                bleu4 = recent_bleu4,
                 is_best = is_best
             )

@@ -1,23 +1,26 @@
+from torch import nn
+
 from config import config
 from .resnet import EncoderResNet, AttentionEncoderResNet, AdaptiveAttentionEncoderResNet
 
-'''
-setup an encoder
+def make(embed_dim: int) -> nn.Module:
+    """
+    Make an encoder
 
-input params:
-    embed_dim: dimention of word embeddings
-'''
-def setup(embed_dim):
-
+    Parameters
+    ----------
+    embed_dim : int
+        Dimention of word embeddings
+    """
     model_name = config.caption_model
-    
+
     if model_name == 'show_tell':
-        model = EncoderResNet(embed_dim = embed_dim)
+        model = EncoderResNet(embed_dim=embed_dim)
     elif model_name == 'att2all':
         model = AttentionEncoderResNet()
     elif model_name == 'adaptive_att' or model_name == 'spatial_att':
         model = AdaptiveAttentionEncoderResNet(
-            decoder_dim = config.decoder_dim, 
+            decoder_dim = config.decoder_dim,
             embed_dim = embed_dim
         )
     else:

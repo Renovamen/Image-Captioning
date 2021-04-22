@@ -1,20 +1,29 @@
-from config import config
+import torch
+
 from .show_tell import Decoder as ShowTellDecoder
 from .att2all import Decoder as Att2AllDecoder
 from .adaptive_att import Decoder as AdaptiveAttDecoder
+from config import config
 
-'''
-setup a decoder
+def make(
+    vocab_size: int, embed_dim: int, embeddings: torch.Tensor
+) -> torch.nn.Module:
+    """
+    Make a decoder
 
-input params:
-    vocab_size: size of vocabulary
-    embed_dim: dimention of word embeddings
-    embeddings: word embeddings
-'''
-def setup(vocab_size, embed_dim, embeddings):
+    Parameters
+    ----------
+    vocab_size : int
+        Size of vocabulary
 
+    embed_dim : int
+        Dimention of word embeddings
+
+    embeddings : torch.Tensor
+        Word embeddings
+    """
     model_name = config.caption_model
-    
+
     if model_name == 'show_tell':
         model = ShowTellDecoder(
             embed_dim = embed_dim,
