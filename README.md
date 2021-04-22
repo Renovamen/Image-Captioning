@@ -1,9 +1,11 @@
 # Image Captioning
 
-PyTorch re-implementation of some image captioning models. Based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning), thanks for this great work.
+PyTorch re-implementation of some image captioning models.
+
 
 &nbsp;
-## Model List
+
+## Supported Models
 
 - `show_tell`
 
@@ -18,19 +20,24 @@ PyTorch re-implementation of some image captioning models. Based on [sgrvinod/a-
 
     **Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning.** *Jiasen Lu, et al.* CVPR 2017. [[Paper]](http://openaccess.thecvf.com/content_cvpr_2017/papers/Lu_Knowing_When_to_CVPR_2017_paper.pdf) [[Code]](https://github.com/jiasenlu/AdaptiveAttention)
 
-You can train different models by configuring `caption_model` in  [`config.py`](config.py).
+You can train different models by editing `caption_model` item in  [`config.py`](config.py).
+
 
 &nbsp;
 
-## Environment
+## Requirements
 
-- Python 3.6.5
+First, make sure your environment is installed with:
 
-- PyTorch 1.4.0 (along with torchvision)
+- Python >= 3.5
+- java 1.8.0 (for computing METEOR)
 
-- java 1.8.0 (only for computing METEOR)
+Then install requirements:
 
-- [Tensorflow](https://www.tensorflow.org/) 2.3.0 (optional, you don't need this if you disable [tensorboard](https://github.com/tensorflow/tensorboard))
+```bash
+pip install -r requirements.txt
+```
+
 
 &nbsp;
 
@@ -38,13 +45,14 @@ You can train different models by configuring `caption_model` in  [`config.py`](
 
 For dataset, I use [Flicker30k](http://shannon.cs.illinois.edu/DenotationGraph/data/index.html) and [Karpathy's split](http://cs.stanford.edu/people/karpathy/deepimagesent/caption_datasets.zip). It is also okey to use [Flickr8k](https://academictorrents.com/details/9dea07ba660a722ae1008c4c8afdd303b6f6e53b) or [MSCOCO 2014](http://cocodataset.org/#download) (their splits and captions are also contained in Karpathy's split). If you want to use other datasets, you may have to create a JSON file which looks like Karpathy's JSON.
 
+
 &nbsp;
 
 ## Usage
 
 ### Configuration
 
-Configure parameters in  [`config.py`](config.py). Refer to this file for more information about each config parameter.
+Edit options and hyper parameters in [`config.py`](config.py). Refer to this file for more information about each item.
 
 
 ### Preprocess
@@ -57,11 +65,9 @@ python preprocess.py
 
 ### Pre-trained Word Embeddings
 
-If you would like to use pre-trained word embeddings (like [GloVe](https://github.com/stanfordnlp/GloVe)), just set `embed_pretrain = True` and the path to the pre-trained vectors file (`embed_path` ) in [`config.py`](config.py). You could also choose to fine-tune or not with the `fine_tune_embeddings` parameter.
+If you would like to use pre-trained word embeddings (like [GloVe](https://github.com/stanfordnlp/GloVe)), just set `embed_pretrain` to `True` and specify the path to pre-trained vectors (`embed_path` ) in [`config.py`](config.py). You could also choose to fine-tune word embeddings or not with by editing `fine_tune_embeddings` item.
 
-The `load_embeddings` method (in [`utils/embedding.py`](utils/embedding.py)) would create a cache under folder `dataset_output_path`, so that it could load the embeddings quicker the next time.
-
-Or if you want to randomly initialize the embedding layer's weights, set `embed_pretrain = False` and specify the size of embedding layer (`embed_dim`).
+Or if you want to randomly initialize the embedding layer's weights, set `embed_pretrain` to `False` and specify the embedding size (`embed_dim`).
 
 
 ### Train
@@ -72,36 +78,37 @@ To train a model, just run:
 python train.py
 ```
 
-If you have enabled tensorboard (`tensorboard = True` in [`config.py`](config.py)), you can visualize the losses and accuracies during training by:
+If you have enabled tensorboard (`tensorboard=True` in [`config.py`](config.py)), you can visualize the losses and accuracies during training by:
 
 ```bash
 tensorboard --logdir=<your_log_dir>
 ```
 
+
 ### Test
 
-Compute evaluation metrics for a trained model on test set:
+To test a checkpoint on test set and compute evaluation metrics:
 
 ```bash
 python test.py
 ```
 
-Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`metrics`](metrics), which are adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption).
+Now BLEU, CIDEr, METEOR and ROUGE-L are supported. Implementations of these metrics are under [`metrics`](metrics) folder.
 
-During training, the BLEU-4 and CIDEr scores on validation set would be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you could also consider about using this script to compute the correct scores for a specific trained model on validation set.
+During training stage, the BLEU-4 and CIDEr scores on validation set would be computed after each epoch's validation. However, since the decoder's input at each timestep is the word in ground truth captions, but not the word it generated in the previous timestep (Teacher Forcing), such scores does not reflect the real performance. So you could also consider about using this script to compute the correct scores for a specific trained model on validation set.
 
 
 ### Inference
 
-This is for when you have trained a model and want to generate a caption (and visualize the attention weights, if the model contains an attention network) for a specific image:
+To generate a caption (and visualize the attention weights if the model use an attention module) on a specific image:
 
-First modify following things in [`inference.py`](inference.py):
+First edit the following items in [`inference.py`](inference.py):
 
 ```python
 model_path = 'path_to_trained_model'
 wordmap_path = 'path_to_word_map'
 img = 'path_to_image'
-beam_size = 5 # beam size for beam search
+beam_size = 5  # beam size for beam search
 ```
 
 Then run:
@@ -110,7 +117,16 @@ Then run:
 python inference.py
 ```
 
+
 &nbsp;
+
+## Notes
+
+- The `load_embeddings` method (in [`utils/embedding.py`](utils/embedding.py)) would try to create a cache for loaded embeddings under folder `dataset_output_path`. This dramatically speeds up the loading time the next time.
+
+
+&nbsp;
+
 ## Results
 
 Here are some examples of the captions generated on images in test set. 
@@ -121,15 +137,16 @@ I haven't fine-tuned CNN. You'd probably want to try fine-tuning it to get bette
 ### Adaptive Attention
 
 #### Good Results
-![adaptive-2](docs/adaptive-attention/success/2.png)
+
+![adaptive-2](assets/adaptive-attention/success/2.png)
 
 #### Okey Results
 
-![adaptive-1](docs/adaptive-attention/success/1.png)Errors: two boys, not a chair...
+![adaptive-1](assets/adaptive-attention/success/1.png)Errors: two boys, not a chair...
 
 #### Bad Results
 
-![adaptive-2](docs/adaptive-attention/fail/1.png)
+![adaptive-2](assets/adaptive-attention/fail/1.png)
 
 Error: not crying...
 
@@ -138,15 +155,23 @@ Error: not crying...
 
 #### Good Results
 
-![attention-1](docs/attention/success/1.png)
-![attention-2](docs/attention/success/2.png)
+![attention-1](assets/attention/success/1.png)
+![attention-2](assets/attention/success/2.png)
 
 #### Okey Results
 
-![attention-3](docs/attention/success/3.png)
+![attention-3](assets/attention/success/3.png)
 
 #### Bad Results
 
-![attention-3](docs/attention/fail/1.png)
+![attention-3](assets/attention/fail/1.png)
 
 Errors: not a woman, and seems to recognize sleeves as jeans...
+
+
+&nbsp;
+
+## Acknowledgements
+
+- This project is based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning).
+- Implementation of [evaluation metrics](metrics) is adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption)
