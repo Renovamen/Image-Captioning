@@ -181,4 +181,4 @@ Errors: not a woman, and seems to recognize sleeves as jeans...
 ## Acknowledgements
 
 - This project is based on [sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning](https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning).
-- Implementation of [evaluation metrics](metrics) is adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption).
+- Implementations of [evaluation metrics](metrics) are adopted from [ruotianluo/coco-caption](https://github.com/ruotianluo/coco-caption).

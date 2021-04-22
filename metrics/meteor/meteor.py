@@ -1,31 +1,40 @@
+# Python wrapper for METEOR implementation, by Xinlei Chen
+# Acknowledge Michael Denkowski for the generous discussion and help
+
 import os
 import sys
 import subprocess
 import threading
+from typing import List, Tuple
 
 # Assumes meteor-1.5.jar is in the same directory as meteor.py.  Change as needed.
 METEOR_JAR = 'meteor-1.5.jar'
 # print METEOR_JAR
 
 class Meteor:
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.env = os.environ
         self.env['LC_ALL'] = 'en_US.UTF_8'
-        self.meteor_cmd = ['java', '-jar', '-Xmx2G', METEOR_JAR, \
-                '-', '-', '-stdio', '-l', 'en', '-norm']
-        self.meteor_p = subprocess.Popen(self.meteor_cmd, \
-                cwd=os.path.dirname(os.path.abspath(__file__)), \
-                stdin=subprocess.PIPE, \
-                stdout=subprocess.PIPE, \
-                stderr=subprocess.PIPE,
-                env=self.env, universal_newlines=True, bufsize=1)
+        self.meteor_cmd = [
+            'java', '-jar', '-Xmx2G', METEOR_JAR,
+            '-', '-', '-stdio', '-l', 'en', '-norm'
+        ]
+        self.meteor_p = subprocess.Popen(
+            self.meteor_cmd,
+            cwd = os.path.dirname(os.path.abspath(__file__)),
+            stdin = subprocess.PIPE,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            env = self.env,
+            universal_newlines = True,
+            bufsize = 1
+        )
         # Used to guarantee thread safety
         self.lock = threading.Lock()
 
-
-    def compute_score(self, reference, hypothesis):
-
+    def compute_score(
+        self, reference: List[List[str]], hypothesis: List[List[str]]
+    ) -> Tuple[float, List[float]]:
         assert len(reference) == len(hypothesis)
 
         scores = []
@@ -33,10 +42,9 @@ class Meteor:
         eval_line = 'EVAL'
         self.lock.acquire()
 
-        for id, hypo in enumerate(hypothesis):
-
+        for i, hypo in enumerate(hypothesis):
             hypo = hypo
-            ref = reference[id]
+            ref = reference[i]
 
             # sanity check
             assert(type(hypo) is list)
@@ -49,7 +57,7 @@ class Meteor:
 
         # Send to METEOR
         self.meteor_p.stdin.write(eval_line + '\n')
-        
+
         # Collect segment scores
         for i in range(0, len(hypothesis)):
             score = float(self.meteor_p.stdout.readline().strip())
@@ -61,10 +69,8 @@ class Meteor:
 
         return final_score, scores
 
-
-    def method(self):
+    def method(self) -> str:
         return "METEOR"
-
 
     def _stat(self, hypothesis_str, reference_list):
         # SCORE ||| reference 1 words ||| reference n words ||| hypothesis words
@@ -73,8 +79,7 @@ class Meteor:
         self.meteor_p.stdin.write(score_line+'\n')
         return self.meteor_p.stdout.readline().strip()
 
-
-    def __del__(self):
+    def __del__(self) -> None:
         self.lock.acquire()
         self.meteor_p.stdin.close()
         self.meteor_p.kill()

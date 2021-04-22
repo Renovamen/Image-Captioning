@@ -116,7 +116,7 @@ def evaluate(beam_size: int) -> float:
 
     # calculate metrics
     metrics = Metrics(ground_truth, prediction, rev_word_map)
-    scores = metrics.all_metrics()
+    scores = metrics.all_metrics
 
     return scores
 
